@@ -1,0 +1,77 @@
+/**
+ * ArrayViz 演示数据
+ * 用于 sorting算法可视化
+ */
+
+import type { AnimationStep } from '@algoflow/animation'
+
+export interface SortDemoData {
+  initialData: number[]
+  steps: AnimationStep[]
+}
+
+export const bubbleSortDemo: SortDemoData = {
+  initialData: [5, 2, 8, 1, 9, 3, 7, 4, 6],
+  steps: [
+    {
+      action: 'highlight',
+      target: [0, 1],
+      duration: 500,
+      description: '比较第一个两个元素'
+    },
+    {
+      action: 'compare',
+      target: [0, 1],
+      duration: 300,
+      description: '比较第 0 和第 1 个元素'
+    },
+    {
+      action: 'swap',
+      target: [0, 1],
+      duration: 800,
+      description: '交换第 0 和第 1 个元素'
+    },
+    {
+      action: 'highlight',
+      target: [1, 2],
+      duration: 500,
+      description: '比较第 1 和第 2 个元素'
+    },
+    {
+      action: 'compare',
+      target: [1, 2],
+      duration: 300,
+      description: '比较第 1 和第 2 个元素'
+    },
+    {
+      action: 'swap',
+      target: [1, 2],
+      duration: 800,
+      description: '交换第 1 和第 2 个元素'
+    },
+    {
+      action: 'highlight',
+      target: [2, 3],
+      duration: 500,
+      description: '比较第 2 和第 3 个元素'
+    },
+    {
+      action: 'compare',
+      target: [2, 3],
+      duration: 300,
+      description: '比较第 2 和第 3 个元素'
+    },
+    {
+      action: 'swap',
+      target: [2, 3],
+      duration: 800,
+      description: '交换第 2 和第 3 个元素'
+    },
+    {
+      action: 'complete',
+      target: [0, 1, 2, 3, 4],
+      duration: 500,
+      description: '排序完成!所有元素已排序完成'
+    },
+  ]
+}

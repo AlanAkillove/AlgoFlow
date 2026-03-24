@@ -1,0 +1,76 @@
+{
+  "version": "1.0",
+  "type": "graph",
+  "nodes": [
+    { "id": "A", "value": "A" },
+    { "id": "B", "value": "B" },
+    { "id": "C", "value": "C" },
+    { "id": "D", "value": "D" },
+    { "id": "E", "value": "E" }
+  ],
+  "edges": [
+    { "source": "A", "target": "B" },
+    { "source": "A", "target": "C" },
+    { "source": "B", "target": "D" },
+    { "source": "C", "target": "D" },
+    { "source": "D", "target": "E" }
+  ],
+  "steps": [
+    {
+      "action": "highlight",
+      "target": "A",
+      "duration": 500,
+      "description": "从节点 A 开始 BFS"
+    },
+    {
+      "action": "traverse",
+      "target": ["A", "B"],
+      "duration": 300,
+      "description": "访问 B"
+    },
+    {
+      "action": "highlight",
+      "target": "B",
+      "duration": 500
+    },
+    {
+      "action": "traverse",
+      "target": ["A", "C"],
+      "duration": 300,
+      "description": "访问 C"
+    },
+    {
+      "action": "highlight",
+      "target": "C",
+      "duration": 500
+    },
+    {
+      "action": "traverse",
+      "target": ["B", "D"],
+      "duration": 300,
+      "description": "访问 D"
+    },
+    {
+      "action": "highlight",
+      "target": "D",
+      "duration": 500
+    },
+    {
+      "action": "traverse",
+      "target": ["D", "E"],
+      "duration": 300,
+      "description": "访问 E"
+    },
+    {
+      "action": "highlight",
+      "target": "E",
+      "duration": 500
+    },
+    {
+      "action": "complete",
+      "target": ["A", "B", "C", "D", "E"],
+      "duration": 500,
+      "description": "BFS 完成"
+    }
+  ]
+}

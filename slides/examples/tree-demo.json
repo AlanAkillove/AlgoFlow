@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "type": "tree",
+  "initialData": {
+    "id": "1",
+    "value": 50,
+    "children": [
+      {
+        "id": "2",
+        "value": 30,
+        "children": [
+          { "id": "4", "value": 20, "children": [] },
+          { "id": "5", "value": 40, "children": [] }
+        ]
+      },
+      {
+        "id": "3",
+        "value": 70,
+        "children": [
+          { "id": "6", "value": 60, "children": [] },
+          { "id": "7", "value": 80, "children": [] }
+        ]
+      }
+    ]
+  },
+  "steps": [
+    {
+      "action": "highlight",
+      "target": "1",
+      "duration": 500,
+      "description": "从根节点开始"
+    },
+    {
+      "action": "highlight",
+      "target": "2",
+      "duration": 500,
+      "description": "访问左子节点"
+    },
+    {
+      "action": "highlight",
+      "target": "4",
+      "duration": 500,
+      "description": "继续向左"
+    },
+    {
+      "action": "unhighlight",
+      "target": "4",
+      "duration": 300
+    },
+    {
+      "action": "highlight",
+      "target": "5",
+      "duration": 500,
+      "description": "访问右子节点"
+    },
+    {
+      "action": "unhighlight",
+      "target": "5",
+      "duration": 300
+    },
+    {
+      "action": "unhighlight",
+      "target": "2",
+      "duration": 300
+    },
+    {
+      "action": "highlight",
+      "target": "3",
+      "duration": 500,
+      "description": "访问右子树"
+    },
+    {
+      "action": "highlight",
+      "target": "6",
+      "duration": 500,
+      "description": "继续向左"
+    },
+    {
+      "action": "unhighlight",
+      "target": "6",
+      "duration": 300
+    },
+    {
+      "action": "highlight",
+      "target": "7",
+      "duration": 500,
+      "description": "访问右子节点"
+    },
+    {
+      "action": "complete",
+      "target": ["1", "2", "3", "4", "5", "6", "7"],
+      "duration": 500,
+      "description": "遍历完成"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "version": "1.0",
+  "type": "array",
+  "initialData": [5, 2, 8, 1, 9, 3, 7, 4, 6],
+  "metadata": {
+    "title": "冒泡排序",
+    "algorithm": "bubble-sort",
+    "description": "演示冒泡排序算法的执行过程"
+  },
+  "steps": [
+    { "action": "highlight", "target": [0, 1], "duration": 300, "description": "比较 5 和 2" },
+    { "action": "swap", "target": [0, 1], "duration": 400, "description": "交换: 5 > 2" },
+    { "action": "highlight", "target": [1, 2], "duration": 300, "description": "比较 5 和 8" },
+    { "action": "unhighlight", "target": [1, 2], "duration": 100, "description": "不交换: 5 < 8" },
+    { "action": "highlight", "target": [2, 3], "duration": 300, "description": "比较 8 和 1" },
+    { "action": "swap", "target": [2, 3], "duration": 400, "description": "交换: 8 > 1" },
+    { "action": "highlight", "target": [3, 4], "duration": 300, "description": "比较 8 和 9" },
+    { "action": "unhighlight", "target": [3, 4], "duration": 100, "description": "不交换: 8 < 9" },
+    { "action": "highlight", "target": [4, 5], "duration": 300, "description": "比较 9 和 3" },
+    { "action": "swap", "target": [4, 5], "duration": 400, "description": "交换: 9 > 3" },
+    { "action": "highlight", "target": [5, 6], "duration": 300, "description": "比较 9 和 7" },
+    { "action": "swap", "target": [5, 6], "duration": 400, "description": "交换: 9 > 7" },
+    { "action": "highlight", "target": [6, 7], "duration": 300, "description": "比较 9 和 4" },
+    { "action": "swap", "target": [6, 7], "duration": 400, "description": "交换: 9 > 4" },
+    { "action": "highlight", "target": [7, 8], "duration": 300, "description": "比较 9 和 6" },
+    { "action": "swap", "target": [7, 8], "duration": 400, "description": "交换: 9 > 6" },
+    { "action": "complete", "target": 8, "duration": 500, "description": "第一轮完成，最大值已就位" },
+    
+    { "action": "highlight", "target": [0, 1], "duration": 300, "description": "第二轮: 比较 2 和 5" },
+    { "action": "unhighlight", "target": [0, 1], "duration": 100 },
+    { "action": "highlight", "target": [1, 2], "duration": 300, "description": "比较 5 和 8" },
+    { "action": "unhighlight", "target": [1, 2], "duration": 100 },
+    { "action": "highlight", "target": [2, 3], "duration": 300, "description": "比较 8 和 1" },
+    { "action": "swap", "target": [2, 3], "duration": 400, "description": "交换" },
+    { "action": "highlight", "target": [3, 4], "duration": 300, "description": "比较 8 和 3" },
+    { "action": "swap", "target": [3, 4], "duration": 400, "description": "交换" },
+    { "action": "highlight", "target": [4, 5], "duration": 300, "description": "比较 8 和 7" },
+    { "action": "swap", "target": [4, 5], "duration": 400, "description": "交换" },
+    { "action": "highlight", "target": [5, 6], "duration": 300, "description": "比较 8 和 4" },
+    { "action": "swap", "target": [5, 6], "duration": 400, "description": "交换" },
+    { "action": "highlight", "target": [6, 7], "duration": 300, "description": "比较 8 和 6" },
+    { "action": "swap", "target": [6, 7], "duration": 400, "description": "交换" },
+    { "action": "complete", "target": 7, "duration": 500, "description": "第二轮完成" },
+    
+    { "action": "complete", "target": [0, 1, 2, 3, 4, 5, 6], "duration": 800, "description": "排序完成！" }
+  ]
+}

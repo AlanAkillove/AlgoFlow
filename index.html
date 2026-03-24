@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AlgoFlow - ACM Algorithm Visualization</title>
+    <style>
+      /* Reset and base styles */
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      
+      html, body, #app {
+        height: 100%;
+        width: 100%;
+        overflow: hidden;
+      }
+      
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      /* Theme CSS variables */
+      :root {
+        --af-background: #ffffff;
+        --af-foreground: #1f2937;
+        --af-primary: #3b82f6;
+        --af-secondary: #8b5cf6;
+        --af-success: #22c55e;
+        --af-warning: #f59e0b;
+        --af-error: #ef4444;
+        --af-muted: #6b7280;
+        --af-accent: #f3f4f6;
+        --af-border: #e5e7eb;
+        --af-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+        --af-border-radius-sm: 4px;
+        --af-border-radius-md: 8px;
+        --af-border-radius-lg: 12px;
+      }
+      
+      .theme-dark {
+        --af-background: #1f2937;
+        --af-foreground: #f9fafb;
+        --af-muted: #9ca3af;
+        --af-accent: #374151;
+        --af-border: #4b5563;
+      }
+      
+      .theme-sepia {
+        --af-background: #faf6f1;
+        --af-foreground: #5c4b37;
+        --af-primary: #8b7355;
+        --af-muted: #9c8b7a;
+        --af-accent: #f0e8dc;
+        --af-border: #d4c8b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

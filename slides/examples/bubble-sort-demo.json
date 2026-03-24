@@ -1,0 +1,52 @@
+[
+  {
+    "action": "highlight",
+    "target": [0, 1],
+    "duration": 500
+  },
+  {
+    "action": "compare",
+    "target": [0, 1],
+    "duration": 300
+  },
+  {
+    "action": "swap",
+    "target": [0, 1],
+    "duration": 800
+  },
+  {
+    "action": "highlight",
+    "target": [1, 2],
+    "duration": 500
+  },
+  {
+    "action": "compare",
+    "target": [1, 2],
+    "duration": 300
+  },
+  {
+    "action": "swap",
+    "target": [1, 2],
+    "duration": 800
+  },
+  {
+    "action": "highlight",
+    "target": [2, 3],
+    "duration": 500
+  },
+  {
+    "action": "compare",
+    "target": [2, 3],
+    "duration": 300
+  },
+  {
+    "action": "swap",
+    "target": [2, 3],
+    "duration": 800
+  },
+  {
+    "action": "complete",
+    "target": [0, 1, 2, 3, 4],
+    "duration": 500
+  }
+]

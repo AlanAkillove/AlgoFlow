@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AlgoFlow Animation Schema",
+  "description": "Schema for AlgoFlow animation definitions",
+  "type": "object",
+  "required": ["version", "type", "initialData", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["array", "tree", "graph"],
+      "description": "Visualization type"
+    },
+    "initialData": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "description": "Array data (for array type)"
+        },
+        {
+          "type": "object",
+          "description": "Tree data (for tree type)",
+          "required": ["value", "id"],
+          "properties": {
+            "value": { "oneOf": [{ "type": "number" }, { "type": "string" }] },
+            "id": { "type": "string" },
+            "children": {
+              "type": "array",
+              "items": { "$ref": "#/properties/initialData" }
+            }
+          }
+        }
+      ],
+      "description": "Initial data for visualization"
+    },
+    "config": {
+      "type": "object",
+      "description": "Optional visualization configuration",
+      "properties": {
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "speed": { "type": "number", "minimum": 0.1, "maximum": 10 },
+        "primaryColor": { "type": "string" },
+        "highlightColor": { "type": "string" },
+        "backgroundColor": { "type": "string" }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "Animation steps",
+      "items": {
+        "type": "object",
+        "required": ["action", "target"],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "highlight",
+              "unhighlight", 
+              "swap",
+              "move",
+              "setValue",
+              "focus",
+              "traverse",
+              "compare",
+              "complete"
+            ],
+            "description": "Type of action to perform"
+          },
+          "target": {
+            "oneOf": [
+              { "type": "integer", "minimum": 0 },
+              { 
+                "type": "array", 
+                "items": { "type": "integer", "minimum": 0 },
+                "minItems": 1
+              }
+            ],
+            "description": "Target element index or indices"
+          },
+          "value": {
+            "description": "New value (for setValue action)",
+            "oneOf": [
+              { "type": "number" },
+              { "type": "string" },
+              { "type": "boolean" }
+            ]
+          },
+          "duration": {
+            "type": "number",
+            "minimum": 0,
+            "default": 300,
+            "description": "Animation duration in milliseconds"
+          },
+          "easing": {
+            "type": "string",
+            "default": "easeOutQuad",
+            "description": "Easing function name"
+          },
+          "delay": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0,
+            "description": "Delay before animation starts"
+          },
+          "description": {
+            "type": "string",
+            "description": "Optional description for debugging"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Optional metadata",
+      "properties": {
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "algorithm": { "type": "string" },
+        "created": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}

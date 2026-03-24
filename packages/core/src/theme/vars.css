@@ -1,0 +1,61 @@
+/* AlgoFlow CSS Variables */
+
+:root {
+  /* Primary Colors */
+  --af-primary: #3b82f6;
+  --af-primary-light: #60a5fa;
+  --af-primary-dark: #2563eb;
+
+  /* Secondary Colors */
+  --af-secondary: #8b5cf6;
+  --af-secondary-light: #a78bfa;
+  --af-secondary-dark: #7c3aed;
+
+  /* Status Colors */
+  --af-success: #22c55e;
+  --af-warning: #f59e0b;
+  --af-error: #ef4444;
+  --af-info: #06b6d4;
+
+  /* Element State Colors */
+  --af-element-default: #64748b;
+  --af-element-highlight: var(--af-primary);
+  --af-element-active: var(--af-success);
+  --af-element-comparing: var(--af-warning);
+  --af-element-sorted: var(--af-success);
+  --af-element-swap: var(--af-error);
+
+  /* Animation Defaults */
+  --af-animation-duration: 300ms;
+  --af-animation-easing: easeOutQuad;
+  --af-animation-fast: 150ms;
+  --af-animation-slow: 500ms;
+
+  /* Spacing */
+  --af-spacing-xs: 4px;
+  --af-spacing-sm: 8px;
+  --af-spacing-md: 16px;
+  --af-spacing-lg: 24px;
+  --af-spacing-xl: 32px;
+  --af-spacing-2xl: 48px;
+
+  /* Typography */
+  --af-font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  --af-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --af-font-size-xs: 12px;
+  --af-font-size-sm: 14px;
+  --af-font-size-md: 16px;
+  --af-font-size-lg: 18px;
+  --af-font-size-xl: 24px;
+
+  /* Borders */
+  --af-border-radius-sm: 4px;
+  --af-border-radius-md: 8px;
+  --af-border-radius-lg: 12px;
+  --af-border-radius-full: 9999px;
+
+  /* Shadows */
+  --af-shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --af-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --af-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
