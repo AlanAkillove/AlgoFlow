@@ -32,3 +32,6 @@ coverage/
 
 # Generated
 *.tsbuildinfo
+
+# Documentation drafts
+doc/
