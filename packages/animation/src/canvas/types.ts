@@ -10,6 +10,8 @@ export interface CanvasOptions {
   pixelRatio?: number
   /** Background color */
   backgroundColor?: string
+  /** Enable incremental rendering for better performance (default: true) */
+  useIncrementalRendering?: boolean
 }
 
 /**

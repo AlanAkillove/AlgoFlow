@@ -1,0 +1,80 @@
+{
+  "version": "1.0",
+  "type": "queue",
+  "initialData": [1, 2, 3],
+  "config": {
+    "itemSize": 50,
+    "showValues": true,
+    "showPointers": true,
+    "circular": false
+  },
+  "steps": [
+    {
+      "action": "highlight",
+      "target": 0,
+      "duration": 300,
+      "description": "Front of queue: 1"
+    },
+    {
+      "action": "highlight",
+      "target": 2,
+      "duration": 300,
+      "description": "Rear of queue: 3"
+    },
+    {
+      "action": "enqueue",
+      "target": 3,
+      "value": 4,
+      "duration": 500,
+      "description": "Enqueue 4 to rear"
+    },
+    {
+      "action": "highlight",
+      "target": 3,
+      "duration": 300,
+      "description": "New rear: 4"
+    },
+    {
+      "action": "dequeue",
+      "target": 0,
+      "duration": 500,
+      "description": "Dequeue 1 from front"
+    },
+    {
+      "action": "highlight",
+      "target": 0,
+      "duration": 300,
+      "description": "New front: 2"
+    },
+    {
+      "action": "enqueue",
+      "target": 3,
+      "value": 5,
+      "duration": 500,
+      "description": "Enqueue 5 to rear"
+    },
+    {
+      "action": "peek",
+      "target": 0,
+      "duration": 400,
+      "description": "Peek: front element is 2"
+    },
+    {
+      "action": "dequeue",
+      "target": 0,
+      "duration": 500,
+      "description": "Dequeue 2 from front"
+    },
+    {
+      "action": "complete",
+      "target": [0, 1, 2],
+      "duration": 300,
+      "description": "Final queue: [3, 4, 5]"
+    }
+  ],
+  "metadata": {
+    "title": "Queue Operations Demo",
+    "algorithm": "Queue",
+    "description": "Demonstrates enqueue, dequeue, and peek operations"
+  }
+}

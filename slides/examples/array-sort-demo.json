@@ -1,0 +1,36 @@
+{
+  "version": "1.0",
+  "type": "array",
+  "initialData": [64, 34, 25, 12, 22, 11, 90, 5, 77, 33],
+  "config": {
+    "showValues": true,
+    "showIndices": true,
+    "orientation": "vertical"
+  },
+  "steps": [
+    { "action": "compare", "target": [0, 1], "duration": 300, "description": "比较 64 和 34" },
+    { "action": "swap", "target": [0, 1], "duration": 400, "description": "交换 64 和 34" },
+    { "action": "compare", "target": [1, 2], "duration": 300, "description": "比较 64 和 25" },
+    { "action": "swap", "target": [1, 2], "duration": 400, "description": "交换 64 和 25" },
+    { "action": "compare", "target": [2, 3], "duration": 300, "description": "比较 64 和 12" },
+    { "action": "swap", "target": [2, 3], "duration": 400, "description": "交换 64 和 12" },
+    { "action": "compare", "target": [3, 4], "duration": 300, "description": "比较 64 和 22" },
+    { "action": "swap", "target": [3, 4], "duration": 400, "description": "交换 64 和 22" },
+    { "action": "complete", "target": [9], "duration": 200, "description": "第一轮冒泡完成，最大值就位！" },
+    { "action": "compare", "target": [0, 1], "duration": 300, "description": "比较 34 和 25" },
+    { "action": "swap", "target": [0, 1], "duration": 400, "description": "交换 34 和 25" },
+    { "action": "compare", "target": [1, 2], "duration": 300, "description": "比较 34 和 12" },
+    { "action": "swap", "target": [1, 2], "duration": 400, "description": "交换 34 和 12" },
+    { "action": "complete", "target": [8, 9], "duration": 200, "description": "第二轮完成！" },
+    { "action": "complete", "target": [0, 1, 2, 3, 4, 5, 6, 7], "duration": 300, "description": "排序完成！" }
+  ],
+  "metadata": {
+    "title": "Bubble Sort Demo",
+    "algorithm": "bubble",
+    "description": "冒泡排序动画演示",
+    "complexity": {
+      "time": "O(n²)",
+      "space": "O(1)"
+    }
+  }
+}

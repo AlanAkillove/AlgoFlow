@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="array-viz">
+  <div ref="containerRef" class="heap-viz">
     <!-- Step description display -->
     <Transition name="fade">
       <div v-if="currentDescription" class="step-description">
@@ -7,8 +7,14 @@
       </div>
     </Transition>
     
+    <!-- Heap info display -->
+    <div class="heap-info">
+      <span class="heap-label">{{ heapTypeLabel }} Heap</span>
+      <span class="heap-size">Size: {{ currentData.length }}</span>
+    </div>
+    
     <div ref="canvasContainerRef" class="canvas-container">
-      <canvas ref="canvasRef" class="array-canvas" />
+      <canvas ref="canvasRef" class="heap-canvas" />
     </div>
     
     <PlayerControls
@@ -34,35 +40,31 @@
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { AnimationPlayer, CanvasRenderer } from '@algoflow/animation'
 import type { AnimationStep } from '@algoflow/animation'
-import { calculateArrayLayout } from '../layouts/array'
 import { 
   type VisualizationConfig, 
   type VisualizationColors,
+  type HeapType,
   COLOR_THEMES 
 } from '../types'
 import PlayerControls from './PlayerControls.vue'
 
-// Props with full type support
+// Props
 const props = withDefaults(defineProps<{
   data: number[]
   steps?: AnimationStep[]
   stepIndex?: number
   config?: VisualizationConfig
-  barWidth?: number
-  gap?: number
+  heapType?: HeapType
+  nodeRadius?: number
   showValues?: boolean
   showIndices?: boolean
-  orientation?: 'horizontal' | 'vertical'
-  minHeightRatio?: number
 }>(), {
   steps: () => [],
   stepIndex: 0,
-  barWidth: undefined,
-  gap: 2,
+  heapType: 'max',
+  nodeRadius: 24,
   showValues: true,
   showIndices: false,
-  orientation: 'vertical',
-  minHeightRatio: 0.05,
 })
 
 // Events
@@ -95,11 +97,14 @@ const playerState = reactive({
 const currentData = ref<number[]>([...props.data])
 
 // Element states
-type ElementState = 'default' | 'highlighted' | 'comparing' | 'completed' | 'active'
+type ElementState = 'default' | 'highlighted' | 'comparing' | 'swapping' | 'inserted' | 'extracted'
 const elementStates = ref<Map<number, ElementState>>(new Map())
 
 // Current step description
 const currentDescription = ref<string>('')
+
+// Heap type label
+const heapTypeLabel = computed(() => props.heapType === 'min' ? 'Min' : 'Max')
 
 // Computed colors from config
 const colors = computed<Required<VisualizationColors>>(() => ({
@@ -111,21 +116,23 @@ const colors = computed<Required<VisualizationColors>>(() => ({
   error: props.config?.colors?.error ?? COLOR_THEMES.default.error!,
   background: props.config?.colors?.background ?? 'transparent',
   text: props.config?.colors?.text ?? '#ffffff',
-  border: props.config?.colors?.border ?? 'transparent',
+  border: props.config?.colors?.border ?? 'rgba(255, 255, 255, 0.2)',
 }))
 
-// Get color for element based on state
-function getElementColor(index: number): string {
+// Get color for node based on state
+function getNodeColor(index: number): string {
   const state = elementStates.value.get(index)
   switch (state) {
     case 'highlighted':
       return colors.value.highlight
     case 'comparing':
       return colors.value.comparing
-    case 'completed':
-      return colors.value.complete
-    case 'active':
+    case 'swapping':
       return colors.value.active
+    case 'inserted':
+      return colors.value.complete
+    case 'extracted':
+      return colors.value.error
     default:
       return colors.value.primary
   }
@@ -258,33 +265,35 @@ function applyStep(step: AnimationStep): void {
         const temp = currentData.value[i]
         currentData.value[i] = currentData.value[j]
         currentData.value[j] = temp
-        // Swap states too
-        const stateI = elementStates.value.get(i)
-        const stateJ = elementStates.value.get(j)
-        if (stateI) elementStates.value.set(j, stateI)
-        if (stateJ) elementStates.value.set(i, stateJ)
+        
+        elementStates.value.set(i, 'swapping')
+        elementStates.value.set(j, 'swapping')
+        setTimeout(() => {
+          elementStates.value.delete(i)
+          elementStates.value.delete(j)
+        }, 300)
       }
       break
     
-    case 'move':
-      if (targets.length === 2 && step.value !== undefined) {
-        const [from, to] = targets as [number, number]
-        currentData.value[to] = step.value as number
+    case 'push':
+      // Insert element into heap
+      if (step.value !== undefined) {
+        currentData.value.push(step.value as number)
+        elementStates.value.set(currentData.value.length - 1, 'inserted')
+        setTimeout(() => elementStates.value.delete(currentData.value.length - 1), 300)
       }
       break
     
-    case 'setValue':
-      if (targets.length === 1 && step.value !== undefined) {
-        currentData.value[targets[0] as number] = step.value as number
+    case 'pop':
+      // Extract root element from heap
+      if (currentData.value.length > 0) {
+        elementStates.value.set(0, 'extracted')
+        currentData.value.shift()
       }
-      break
-    
-    case 'complete':
-      targets.forEach((i) => elementStates.value.set(i as number, 'completed'))
       break
     
     case 'activate':
-      targets.forEach((i) => elementStates.value.set(i as number, 'active'))
+      targets.forEach((i) => elementStates.value.set(i as number, 'highlighted'))
       break
     
     case 'deactivate':
@@ -293,83 +302,202 @@ function applyStep(step: AnimationStep): void {
   }
 }
 
+// Heap node position interface
+interface HeapNode {
+  index: number
+  value: number
+  x: number
+  y: number
+  depth: number
+}
+
+// Calculate heap tree layout
+function calculateHeapLayout(
+  data: number[],
+  options: {
+    width: number
+    height: number
+    nodeRadius: number
+    padding: number
+  }
+): HeapNode[] {
+  const { width, height, nodeRadius, padding } = options
+  
+  if (data.length === 0) return []
+  
+  const nodes: HeapNode[] = []
+  const depth = Math.floor(Math.log2(data.length)) + 1
+  
+  // Calculate vertical spacing
+  const verticalGap = Math.max(40, (height - padding * 2 - nodeRadius * 2) / Math.max(1, depth - 1))
+  
+  data.forEach((value, index) => {
+    const nodeDepth = Math.floor(Math.log2(index + 1))
+    const positionInLevel = index - (Math.pow(2, nodeDepth) - 1)
+    const nodesInLevel = Math.pow(2, nodeDepth)
+    
+    // Horizontal position
+    const levelWidth = width - padding * 2
+    const xSpacing = levelWidth / (nodesInLevel + 1)
+    const x = padding + xSpacing * (positionInLevel + 1)
+    
+    // Vertical position
+    const y = padding + nodeRadius + nodeDepth * verticalGap
+    
+    nodes.push({
+      index,
+      value,
+      x,
+      y,
+      depth: nodeDepth,
+    })
+  })
+  
+  return nodes
+}
+
+// Get parent index
+function getParentIndex(index: number): number {
+  return Math.floor((index - 1) / 2)
+}
+
+// Get children indices
+function getChildrenIndices(index: number, length: number): [number | null, number | null] {
+  const left = 2 * index + 1
+  const right = 2 * index + 2
+  return [
+    left < length ? left : null,
+    right < length ? right : null,
+  ]
+}
+
 // Render the visualization
 function render(): void {
   if (!renderer || !canvasContainerRef.value) return
 
   const { width, height } = canvasContainerRef.value.getBoundingClientRect()
 
-  const bars = calculateArrayLayout(currentData.value, {
+  const nodes = calculateHeapLayout(currentData.value, {
     width,
     height,
-    barWidth: props.barWidth,
-    gap: props.gap,
-    padding: props.config?.padding ?? 20,
-    orientation: props.orientation,
-    minHeightRatio: props.minHeightRatio,
+    nodeRadius: props.nodeRadius,
+    padding: props.config?.padding ?? 40,
   })
 
   renderer.clearShapes()
 
-  bars.forEach((bar) => {
-    const color = getElementColor(bar.index)
+  // Draw edges first
+  nodes.forEach((node) => {
+    const [leftIndex, rightIndex] = getChildrenIndices(node.index, currentData.value.length)
+    
+    // Draw edge to left child
+    if (leftIndex !== null && nodes[leftIndex]) {
+      const child = nodes[leftIndex]
+      renderer!.setShape({
+        id: `edge-${node.index}-${leftIndex}`,
+        type: 'line',
+        x: node.x,
+        y: node.y + props.nodeRadius,
+        x2: child.x,
+        y2: child.y - props.nodeRadius,
+        style: {
+          stroke: 'rgba(100, 116, 139, 0.4)',
+          strokeWidth: 2,
+        },
+      })
+    }
+    
+    // Draw edge to right child
+    if (rightIndex !== null && nodes[rightIndex]) {
+      const child = nodes[rightIndex]
+      renderer!.setShape({
+        id: `edge-${node.index}-${rightIndex}`,
+        type: 'line',
+        x: node.x,
+        y: node.y + props.nodeRadius,
+        x2: child.x,
+        y2: child.y - props.nodeRadius,
+        style: {
+          stroke: 'rgba(100, 116, 139, 0.4)',
+          strokeWidth: 2,
+        },
+      })
+    }
+  })
 
-    // Draw bar
+  // Draw nodes
+  nodes.forEach((node) => {
+    const color = getNodeColor(node.index)
+    const state = elementStates.value.get(node.index)
+
+    // Draw node circle
     renderer!.setShape({
-      id: `bar-${bar.index}`,
-      type: 'rect',
-      x: bar.x,
-      y: bar.y,
-      width: bar.width,
-      height: bar.height,
+      id: `node-${node.index}`,
+      type: 'circle',
+      x: node.x,
+      y: node.y,
+      radius: props.nodeRadius,
       style: {
         fill: color,
-        borderRadius: 4,
-        shadow: elementStates.value.has(bar.index) 
-          ? { color: color, blur: 8, offsetX: 0, offsetY: 0 }
-          : undefined,
+        stroke: state ? color : 'rgba(255, 255, 255, 0.1)',
+        strokeWidth: state ? 3 : 1,
       },
     })
 
     // Draw value text
-    if (props.showValues && bar.height > 20) {
+    if (props.showValues) {
       renderer!.setShape({
-        id: `value-${bar.index}`,
+        id: `value-${node.index}`,
         type: 'text',
-        x: bar.x + bar.width / 2,
-        y: bar.y + 16,
-        text: String(bar.value),
+        x: node.x,
+        y: node.y,
+        text: String(node.value),
+        fontSize: 14,
+        fontFamily: 'system-ui, sans-serif',
+        textAlign: 'center',
+        textBaseline: 'middle',
         style: {
           fill: colors.value.text,
-          fontSize: 12,
-          fontFamily: 'system-ui, sans-serif',
-          fontWeight: '500',
-          textAlign: 'center',
         },
       })
     }
 
     // Draw index
     if (props.showIndices) {
-      const indexY = props.orientation === 'vertical' 
-        ? bar.y + bar.height + 16 
-        : bar.y + bar.height / 2
-      
       renderer!.setShape({
-        id: `index-${bar.index}`,
+        id: `index-${node.index}`,
         type: 'text',
-        x: bar.x + bar.width / 2,
-        y: indexY,
-        text: String(bar.index),
+        x: node.x,
+        y: node.y + props.nodeRadius + 12,
+        text: `[${node.index}]`,
+        fontSize: 10,
+        fontFamily: 'monospace',
+        textAlign: 'center',
+        textBaseline: 'top',
         style: {
-          fill: '#94a3b8',
-          fontSize: 10,
-          fontFamily: 'monospace',
-          textAlign: 'center',
+          fill: 'rgba(100, 116, 139, 0.6)',
         },
       })
     }
   })
+
+  // Draw empty state
+  if (nodes.length === 0) {
+    renderer!.setShape({
+      id: 'empty-text',
+      type: 'text',
+      x: width / 2,
+      y: height / 2,
+      text: '(empty heap)',
+      fontSize: 14,
+      fontFamily: 'system-ui, sans-serif',
+      textAlign: 'center',
+      textBaseline: 'middle',
+      style: {
+        fill: 'rgba(100, 116, 139, 0.5)',
+      },
+    })
+  }
 
   renderer.render()
 }
@@ -435,7 +563,7 @@ defineExpose({
 </script>
 
 <style scoped>
-.array-viz {
+.heap-viz {
   width: 100%;
   height: 100%;
   min-height: 300px;
@@ -445,13 +573,38 @@ defineExpose({
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+.heap-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(100, 116, 139, 0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.heap-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.heap-size {
+  font-family: monospace;
+  font-size: 12px;
+  color: #6b7280;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .canvas-container {
   flex: 1;
   min-height: 200px;
   position: relative;
 }
 
-.array-canvas {
+.heap-canvas {
   width: 100%;
   height: 100%;
   display: block;

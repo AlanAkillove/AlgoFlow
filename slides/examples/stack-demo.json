@@ -1,0 +1,75 @@
+{
+  "version": "1.0",
+  "type": "stack",
+  "initialData": [10, 20, 30],
+  "config": {
+    "itemHeight": 40,
+    "itemWidth": 100,
+    "showValues": true,
+    "showPointers": true
+  },
+  "steps": [
+    {
+      "action": "highlight",
+      "target": 2,
+      "duration": 300,
+      "description": "Current stack top: 30"
+    },
+    {
+      "action": "push",
+      "target": 3,
+      "value": 40,
+      "duration": 500,
+      "description": "Push 40 onto stack"
+    },
+    {
+      "action": "highlight",
+      "target": 3,
+      "duration": 300,
+      "description": "New stack top: 40"
+    },
+    {
+      "action": "peek",
+      "target": 3,
+      "duration": 400,
+      "description": "Peek: top element is 40"
+    },
+    {
+      "action": "pop",
+      "target": 3,
+      "duration": 500,
+      "description": "Pop 40 from stack"
+    },
+    {
+      "action": "highlight",
+      "target": 2,
+      "duration": 300,
+      "description": "Stack top is now: 30"
+    },
+    {
+      "action": "push",
+      "target": 3,
+      "value": 50,
+      "duration": 500,
+      "description": "Push 50 onto stack"
+    },
+    {
+      "action": "push",
+      "target": 4,
+      "value": 60,
+      "duration": 500,
+      "description": "Push 60 onto stack"
+    },
+    {
+      "action": "complete",
+      "target": [0, 1, 2, 3, 4],
+      "duration": 300,
+      "description": "Final stack: [10, 20, 30, 50, 60]"
+    }
+  ],
+  "metadata": {
+    "title": "Stack Operations Demo",
+    "algorithm": "Stack",
+    "description": "Demonstrates push, pop, and peek operations"
+  }
+}

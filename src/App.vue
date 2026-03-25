@@ -1,578 +1,92 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, provide, nextTick } from 'vue'
+/**
+ * App.vue - 简化版主应用组件
+ * 
+ * 所有业务逻辑已迁移至 composables/useApp.ts
+ */
+import { useApp } from './composables'
+
+// 导入组件
 import SlideRenderer from './components/SlideRenderer.vue'
 import SlideNav from './components/SlideNav.vue'
-import { applyTheme, lightTheme, darkTheme, type Theme } from '@algoflow/core'
+import Toolbar from './components/Toolbar.vue'
 
-// Slide state
-interface SlideInfo {
-  content: string
-  frontmatter: Record<string, unknown>
-  title: string
-  sectionTitle?: string
-  notes?: string  // Speaker notes
-}
+// 使用 useApp composable 获取所有状态和方法
+const {
+  // Slide state
+  slides,
+  currentIndex,
+  totalSlides,
+  currentSlide,
+  nextSlide,
+  globalTitle,
 
-const slides = ref<SlideInfo[]>([])
-const currentIndex = ref(0)
-const totalSlides = computed(() => slides.value.length)
+  // Theme
+  currentTheme,
+  toggleTheme,
 
-// Click animation state (v-click support)
-const clickIndex = ref(0)
-const totalClicks = ref(0)
+  // UI state
+  isFullscreen,
+  showThumbnailNav,
+  showKeyboardHints,
+  showSpeakerNotes,
+  showToolbar,
 
-// Reset click index when slide changes
-watch(currentIndex, () => {
-  clickIndex.value = 0
-})
+  // Drawing state
+  isDrawing,
+  drawingCanvas,
+  drawingColor,
+  drawingColors,
+  isEraser,
+  eraserSize,
+  eraserSizes,
+  brushSize,
+  brushSizes,
+  showEraserMenu,
+  showBrushMenu,
+  brushMenuColor,
+  eraserCursorX,
+  eraserCursorY,
+  canUndo,
+  canRedo,
 
-// Provide click state to children
-provide('clickIndex', clickIndex)
-provide('totalClicks', totalClicks)
+  // Laser pointer
+  isLaserPointer,
+  laserX,
+  laserY,
 
-// Global title from frontmatter
-const globalTitle = computed(() => {
-  if (slides.value.length > 0 && slides.value[0].frontmatter.title) {
-    return String(slides.value[0].frontmatter.title)
-  }
-  return 'AlgoFlow Presentation'
-})
+  // Presenter mode
+  isPresenterMode,
+  isPresenterWindow,
+  elapsedTime,
 
-// Theme state
-const currentTheme = ref<Theme>(lightTheme)
-const themes: Record<string, Theme> = { light: lightTheme, dark: darkTheme }
+  // Export mode
+  isExportMode,
 
-// UI state
-const isFullscreen = ref(false)
-const showThumbnailNav = ref(false)
-const showKeyboardHints = ref(false)
-const showSpeakerNotes = ref(false)
+  // Methods
+  goNext,
+  goPrev,
+  goTo,
+  toggleFullscreen,
+  startDrawing,
+  draw,
+  updateEraserCursor,
+  stopDrawing,
+  clearDrawing,
+  undoDrawing,
+  redoDrawing,
+  updateLaserPosition,
+  showToolbarOnMove,
+  openPresenterWindow,
+  formatTime,
+  getSlideTitle,
+} = useApp()
 
-// Drawing state
-const isDrawing = ref(false)
-const drawingCanvas = ref<HTMLCanvasElement | null>(null)
-const drawingColor = ref('#ff0000')
-const drawingColors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#000000']
-const isDrawingActive = ref(false)
-const lastX = ref(0)
-const lastY = ref(0)
-const isEraser = ref(false)  // Eraser mode
-const eraserSize = ref(20)  // Eraser radius
-const eraserSizes = [10, 20, 30, 50]
-const brushSize = ref(3)  // Brush width
-const brushSizes = [1, 2, 3, 5, 8]
-const showEraserMenu = ref(false)  // Eraser size dropdown
-const showBrushMenu = ref(false)  // Brush size dropdown
-const brushMenuColor = ref('')  // Which color's brush menu is open
-const eraserCursorX = ref(0)  // Eraser cursor position
-const eraserCursorY = ref(0)
-
-// Laser pointer state
-const isLaserPointer = ref(false)
-const laserX = ref(0)
-const laserY = ref(0)
-
-// Presenter mode state
-const isPresenterMode = ref(false)
-const isPresenterWindow = ref(false)  // True if this is the presenter window
-const presenterChannel = ref<BroadcastChannel | null>(null)
-const elapsedTime = ref(0)
-const timerInterval = ref<number | null>(null)
-
-// Check if this is a presenter window
-if (typeof window !== 'undefined') {
-  const urlParams = new URLSearchParams(window.location.search)
-  isPresenterWindow.value = urlParams.get('presenter') === 'true'
-}
-
-// Export mode (for PDF export - hide visualizations)
-const isExportMode = ref(false)
-if (typeof window !== 'undefined') {
-  const urlParams = new URLSearchParams(window.location.search)
-  isExportMode.value = urlParams.get('export') === 'pdf'
-}
-
-// Current slide
-const currentSlide = computed(() => slides.value[currentIndex.value])
-
-// Next slide preview
-const nextSlide = computed(() => {
-  if (currentIndex.value < slides.value.length - 1) {
-    return slides.value[currentIndex.value + 1]
-  }
-  return null
-})
-
-
-// Load slides from markdown file
-async function loadSlides() {
-  // Check URL parameter for file path
-  const urlParams = new URLSearchParams(window.location.search)
-  const fileParam = urlParams.get('file')
-  
-  // Default to sorting.md if no file specified
-  const filePath = fileParam || '/slides/examples/sorting.md'
-  
-  console.log('Loading slides from:', filePath)
-  
-  const response = await fetch(filePath)
-  const markdown = await response.text()
-  
-  // Parse slides - improved logic with title extraction
-  const lines = markdown.split('\n')
-  const parsedSlides: SlideInfo[] = []
-  
-  let currentSlide = ''
-  let globalFrontmatter: Record<string, unknown> = {}
-  let inFrontmatter = false
-  let frontmatterLines: string[] = []
-  let isFirstSlide = true
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmedLine = line.trim()
-    
-    // Check for frontmatter at the start
-    if (isFirstSlide && !inFrontmatter && trimmedLine === '---' && currentSlide.trim() === '') {
-      inFrontmatter = true
-      continue
-    }
-    
-    if (inFrontmatter) {
-      if (trimmedLine === '---') {
-        // End of frontmatter
-        inFrontmatter = false
-        // Parse frontmatter
-        frontmatterLines.forEach(fmLine => {
-          const [key, ...valueParts] = fmLine.split(':')
-          if (key && valueParts.length) {
-            globalFrontmatter[key.trim()] = valueParts.join(':').trim()
-          }
-        })
-        continue
-      }
-      frontmatterLines.push(line)
-      continue
-    }
-    
-    // Check for slide separator (--- on its own line)
-    if (trimmedLine === '---' && !inFrontmatter) {
-      // Save current slide with title extraction
-      if (currentSlide.trim()) {
-        const { title, sectionTitle, notes, content } = extractSlideTitle(currentSlide.trim())
-        parsedSlides.push({
-          content,
-          frontmatter: { ...globalFrontmatter },
-          title,
-          sectionTitle,
-          notes,
-        })
-        currentSlide = ''
-      }
-      isFirstSlide = false
-      continue
-    }
-    
-    // Add line to current slide
-    currentSlide += line + '\n'
-  }
-  
-  // Don't forget the last slide
-  if (currentSlide.trim()) {
-    const { title, sectionTitle, notes, content } = extractSlideTitle(currentSlide.trim())
-    parsedSlides.push({
-      content,
-      frontmatter: { ...globalFrontmatter },
-      title,
-      sectionTitle,
-      notes,
-    })
-  }
-  
-  slides.value = parsedSlides
-  
-  // Update document title
-  document.title = globalTitle.value
-}
-
-// Extract title and notes from slide content
-function extractSlideTitle(content: string): { title: string; sectionTitle?: string; notes?: string; content: string } {
-  let title = 'Untitled'
-  let sectionTitle: string | undefined
-  let notes: string | undefined
-  
-  // Check for HTML comment title: <!-- title: xxx -->
-  const commentMatch = content.match(/<!--\s*title:\s*(.+?)\s*-->/)
-  if (commentMatch) {
-    title = commentMatch[1].trim()
-    // Remove the comment from content
-    content = content.replace(commentMatch[0], '').trim()
-  }
-  
-  // Check for section title: <!-- section: xxx -->
-  const sectionMatch = content.match(/<!--\s*section:\s*(.+?)\s*-->/)
-  if (sectionMatch) {
-    sectionTitle = sectionMatch[1].trim()
-    // Remove the comment from content
-    content = content.replace(sectionMatch[0], '').trim()
-  }
-  
-  // Check for speaker notes: <!-- notes: xxx --> or multiline <!-- notes: ... -->
-  const notesMatch = content.match(/<!--\s*notes:\s*([\s\S]*?)\s*-->/)
-  if (notesMatch) {
-    notes = notesMatch[1].trim()
-    // Remove the comment from content
-    content = content.replace(notesMatch[0], '').trim()
-  }
-  
-  // If no comment title, extract from first heading
-  if (title === 'Untitled') {
-    const lines = content.split('\n')
-    for (const line of lines) {
-      // Match h1 or h2
-      const match = line.match(/^(#{1,2})\s+(.+)$/)
-      if (match) {
-        title = match[2].trim()
-        break
-      }
-    }
-  }
-  
-  return { title, sectionTitle, notes, content }
-}
-
-// Navigation
-function goNext() {
-  // Check if there are remaining click animations
-  if (clickIndex.value < totalClicks.value) {
-    clickIndex.value++
-    broadcastSlideChange()
-    return
-  }
-  // Otherwise go to next slide
-  if (currentIndex.value < totalSlides.value - 1) {
-    currentIndex.value++
-    broadcastSlideChange()
-  }
-}
-
-function goPrev() {
-  // Check if we can go back in click animations
-  if (clickIndex.value > 0) {
-    clickIndex.value--
-    broadcastSlideChange()
-    return
-  }
-  // Otherwise go to previous slide
-  if (currentIndex.value > 0) {
-    currentIndex.value--
-    broadcastSlideChange()
-  }
-}
-
-function goTo(index: number) {
-  if (index >= 0 && index < totalSlides.value) {
-    currentIndex.value = index
-    showThumbnailNav.value = false
-  }
-}
-
-// Theme toggle
-function toggleTheme() {
-  const newTheme = currentTheme.value.name === 'light' ? 'dark' : 'light'
-  currentTheme.value = themes[newTheme]
-  applyTheme(currentTheme.value)
-}
-
-// Fullscreen toggle
-function toggleFullscreen() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen()
-    isFullscreen.value = true
-  } else {
-    document.exitFullscreen()
-    isFullscreen.value = false
-  }
-}
-
-// Drawing functions
-function initDrawingCanvas() {
-  if (!drawingCanvas.value) return
-  const canvas = drawingCanvas.value
-  const container = canvas.parentElement
-  if (!container) return
-  
-  canvas.width = container.clientWidth
-  canvas.height = container.clientHeight
-  
-  const ctx = canvas.getContext('2d')
-  if (ctx) {
-    ctx.lineCap = 'round'
-    ctx.lineJoin = 'round'
-    ctx.lineWidth = 3
-  }
-}
-
-function startDrawing(e: MouseEvent) {
-  isDrawingActive.value = true
-  // Close dropdown menus when drawing starts
-  showEraserMenu.value = false
-  showBrushMenu.value = false
-  const rect = drawingCanvas.value?.getBoundingClientRect()
-  if (rect) {
-    lastX.value = e.clientX - rect.left
-    lastY.value = e.clientY - rect.top
-  }
-}
-
-function draw(e: MouseEvent) {
-  if (!isDrawingActive.value || !drawingCanvas.value) return
-  
-  const canvas = drawingCanvas.value
-  const ctx = canvas.getContext('2d')
-  if (!ctx) return
-  
-  const rect = canvas.getBoundingClientRect()
-  const x = e.clientX - rect.left
-  const y = e.clientY - rect.top
-  
-  // Set eraser or drawing mode
-  if (isEraser.value) {
-    ctx.globalCompositeOperation = 'destination-out'
-    ctx.strokeStyle = 'rgba(0,0,0,1)'
-    ctx.lineWidth = eraserSize.value * 2  // Diameter = radius * 2
-  } else {
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.strokeStyle = drawingColor.value
-    ctx.lineWidth = brushSize.value
-  }
-  
-  ctx.beginPath()
-  ctx.moveTo(lastX.value, lastY.value)
-  ctx.lineTo(x, y)
-  ctx.stroke()
-  
-  lastX.value = x
-  lastY.value = y
-}
-
-// Update eraser cursor position
-function updateEraserCursor(e: MouseEvent) {
-  if (!isEraser.value || !isDrawing.value) return
-  eraserCursorX.value = e.clientX
-  eraserCursorY.value = e.clientY
-}
-
-// Handle canvas mouse move (combines draw and eraser cursor update)
+// Canvas mouse move handler (combines drawing and eraser cursor)
 function handleCanvasMouseMove(e: MouseEvent) {
   draw(e)
   updateEraserCursor(e)
 }
-
-function stopDrawing() {
-  isDrawingActive.value = false
-}
-
-function clearDrawing() {
-  if (!drawingCanvas.value) return
-  const ctx = drawingCanvas.value.getContext('2d')
-  if (ctx) {
-    ctx.clearRect(0, 0, drawingCanvas.value.width, drawingCanvas.value.height)
-  }
-}
-
-// Watch isDrawing to init canvas
-watch(isDrawing, (val) => {
-  if (val) {
-    nextTick(() => {
-      initDrawingCanvas()
-    })
-  }
-})
-
-// Laser pointer functions
-function updateLaserPosition(e: MouseEvent) {
-  if (!isLaserPointer.value) return
-  laserX.value = e.clientX
-  laserY.value = e.clientY
-}
-
-// Presenter mode functions
-function openPresenterWindow() {
-  const url = new URL(window.location.href)
-  url.searchParams.set('presenter', 'true')
-  window.open(url.toString(), 'algoflow-presenter', 'width=1280,height=720')
-  isPresenterMode.value = true
-}
-
-function initPresenterChannel() {
-  if (typeof BroadcastChannel === 'undefined') return
-  
-  presenterChannel.value = new BroadcastChannel('algoflow-sync')
-  
-  presenterChannel.value.onmessage = (event) => {
-    const { type, data } = event.data
-    
-    if (type === 'slide-change' && isPresenterWindow.value) {
-      // Presenter window receives slide changes
-      currentIndex.value = data.index
-      clickIndex.value = data.clickIndex
-    }
-  }
-}
-
-function broadcastSlideChange() {
-  if (!presenterChannel.value) return
-  
-  presenterChannel.value.postMessage({
-    type: 'slide-change',
-    data: {
-      index: currentIndex.value,
-      clickIndex: clickIndex.value
-    }
-  })
-}
-
-// Timer functions
-function startTimer() {
-  if (timerInterval.value) return
-  timerInterval.value = window.setInterval(() => {
-    elapsedTime.value++
-  }, 1000)
-}
-
-function stopTimer() {
-  if (timerInterval.value) {
-    clearInterval(timerInterval.value)
-    timerInterval.value = null
-  }
-}
-
-function resetTimer() {
-  stopTimer()
-  elapsedTime.value = 0
-}
-
-function formatTime(seconds: number): string {
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-}
-
-// Keyboard navigation
-function handleKeydown(e: KeyboardEvent) {
-  // Ignore if typing in input/textarea
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-    return
-  }
-  
-  // Show keyboard hints on ?
-  if (e.key === '?' || (e.shiftKey && e.key === '/')) {
-    e.preventDefault()
-    showKeyboardHints.value = !showKeyboardHints.value
-    return
-  }
-  
-  // Toggle thumbnail nav on Escape
-  if (e.key === 'Escape') {
-    if (showThumbnailNav.value) {
-      showThumbnailNav.value = false
-    } else if (showKeyboardHints.value) {
-      showKeyboardHints.value = false
-    }
-    return
-  }
-  
-  // Toggle thumbnail nav on G
-  if (e.key === 'g' || e.key === 'G') {
-    showThumbnailNav.value = !showThumbnailNav.value
-    return
-  }
-  
-  // Fullscreen on F
-  if (e.key === 'f' || e.key === 'F') {
-    toggleFullscreen()
-    return
-  }
-  
-  // Toggle speaker notes on S
-  if (e.key === 's' || e.key === 'S') {
-    showSpeakerNotes.value = !showSpeakerNotes.value
-    return
-  }
-  
-  // Toggle drawing mode on D
-  if (e.key === 'd' || e.key === 'D') {
-    isDrawing.value = !isDrawing.value
-    return
-  }
-  
-  // Toggle laser pointer on L
-  if (e.key === 'l' || e.key === 'L') {
-    isLaserPointer.value = !isLaserPointer.value
-    return
-  }
-  
-  // Open presenter window on P
-  if (e.key === 'p' || e.key === 'P') {
-    openPresenterWindow()
-    return
-  }
-  
-  switch (e.key) {
-    case 'ArrowRight':
-    case ' ':
-      e.preventDefault()
-      goNext()
-      break
-    case 'ArrowLeft':
-      goPrev()
-      break
-    case 'Home':
-      goTo(0)
-      break
-    case 'End':
-      goTo(totalSlides.value - 1)
-      break
-  }
-}
-
-// Get slide title for thumbnail
-function getSlideTitle(slide: SlideInfo): string {
-  return slide.title
-}
-
-// Get section title for grouping
-function getSectionTitle(slide: SlideInfo): string | undefined {
-  return slide.sectionTitle
-}
-
-onMounted(() => {
-  loadSlides()
-  applyTheme(currentTheme.value)
-  window.addEventListener('keydown', handleKeydown)
-  
-  // Initialize presenter channel
-  initPresenterChannel()
-  
-  // Start timer if in presenter window
-  if (isPresenterWindow.value) {
-    startTimer()
-  }
-  
-  // Listen for fullscreen changes
-  document.addEventListener('fullscreenchange', () => {
-    isFullscreen.value = !!document.fullscreenElement
-  })
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', handleKeydown)
-  stopTimer()
-  if (presenterChannel.value) {
-    presenterChannel.value.close()
-  }
-})
 </script>
 
 <template>
@@ -592,6 +106,9 @@ onUnmounted(() => {
             :content="slides[currentIndex].content"
             :frontmatter="slides[currentIndex].frontmatter"
             :export-mode="false"
+            :layout="slides[currentIndex].layout"
+            :animation="slides[currentIndex].animation"
+            :transition="slides[currentIndex].transition"
           />
         </div>
       </div>
@@ -620,7 +137,7 @@ onUnmounted(() => {
     v-else
     class="algoflow-app" 
     :class="`theme-${currentTheme.name}`"
-    @mousemove="updateLaserPosition"
+    @mousemove="(e: MouseEvent) => { updateLaserPosition(e); showToolbarOnMove(e) }"
   >
     <div class="slide-container">
       <Transition name="slide" mode="out-in">
@@ -630,6 +147,9 @@ onUnmounted(() => {
           :content="slides[currentIndex].content"
           :frontmatter="slides[currentIndex].frontmatter"
           :export-mode="isExportMode"
+          :layout="slides[currentIndex].layout"
+          :animation="slides[currentIndex].animation"
+          :transition="slides[currentIndex].transition"
         />
       </Transition>
       
@@ -808,6 +328,14 @@ onUnmounted(() => {
               <span>幻灯片导航</span>
             </div>
             <div class="hint-row">
+              <kbd>Ctrl+Z</kbd>
+              <span>撤销画笔</span>
+            </div>
+            <div class="hint-row">
+              <kbd>Ctrl+Y</kbd>
+              <span>重做画笔</span>
+            </div>
+            <div class="hint-row">
               <kbd>?</kbd>
               <span>显示帮助</span>
             </div>
@@ -840,6 +368,24 @@ onUnmounted(() => {
       @go-to="goTo"
       @toggle-theme="toggleTheme"
     />
+    
+    <!-- Floating Toolbar -->
+    <Transition name="toolbar-fade">
+      <Toolbar
+        v-if="showToolbar"
+        :is-drawing="isDrawing"
+        :is-laser-pointer="isLaserPointer"
+        :is-presenter-mode="isPresenterMode"
+        :is-fullscreen="isFullscreen"
+        :theme="currentTheme.name"
+        @toggle-drawing="isDrawing = !isDrawing"
+        @toggle-laser="isLaserPointer = !isLaserPointer"
+        @open-presenter="openPresenterWindow"
+        @toggle-fullscreen="toggleFullscreen"
+        @toggle-theme="toggleTheme"
+        @show-help="showKeyboardHints = true"
+      />
+    </Transition>
   </div>
 </template>
 
@@ -884,6 +430,18 @@ onUnmounted(() => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Toolbar fade transition */
+.toolbar-fade-enter-active,
+.toolbar-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toolbar-fade-enter-from,
+.toolbar-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(20px);
 }
 
 /* Thumbnail Navigation */

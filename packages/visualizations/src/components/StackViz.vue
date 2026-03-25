@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="array-viz">
+  <div ref="containerRef" class="stack-viz">
     <!-- Step description display -->
     <Transition name="fade">
       <div v-if="currentDescription" class="step-description">
@@ -7,8 +7,14 @@
       </div>
     </Transition>
     
+    <!-- Stack info display -->
+    <div class="stack-info">
+      <span class="stack-label">Stack</span>
+      <span class="stack-size">Size: {{ currentData.length }}</span>
+    </div>
+    
     <div ref="canvasContainerRef" class="canvas-container">
-      <canvas ref="canvasRef" class="array-canvas" />
+      <canvas ref="canvasRef" class="stack-canvas" />
     </div>
     
     <PlayerControls
@@ -34,7 +40,6 @@
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { AnimationPlayer, CanvasRenderer } from '@algoflow/animation'
 import type { AnimationStep } from '@algoflow/animation'
-import { calculateArrayLayout } from '../layouts/array'
 import { 
   type VisualizationConfig, 
   type VisualizationColors,
@@ -42,27 +47,23 @@ import {
 } from '../types'
 import PlayerControls from './PlayerControls.vue'
 
-// Props with full type support
+// Props
 const props = withDefaults(defineProps<{
-  data: number[]
+  data: (number | string)[]
   steps?: AnimationStep[]
   stepIndex?: number
   config?: VisualizationConfig
-  barWidth?: number
-  gap?: number
+  itemHeight?: number
+  itemWidth?: number
   showValues?: boolean
-  showIndices?: boolean
-  orientation?: 'horizontal' | 'vertical'
-  minHeightRatio?: number
+  maxVisibleItems?: number
 }>(), {
   steps: () => [],
   stepIndex: 0,
-  barWidth: undefined,
-  gap: 2,
+  itemHeight: 40,
+  itemWidth: 80,
   showValues: true,
-  showIndices: false,
-  orientation: 'vertical',
-  minHeightRatio: 0.05,
+  maxVisibleItems: 10,
 })
 
 // Events
@@ -92,11 +93,14 @@ const playerState = reactive({
 })
 
 // Data state
-const currentData = ref<number[]>([...props.data])
+const currentData = ref<(number | string)[]>([...props.data])
 
 // Element states
-type ElementState = 'default' | 'highlighted' | 'comparing' | 'completed' | 'active'
+type ElementState = 'default' | 'highlighted' | 'active' | 'peeking' | 'pushing' | 'popping'
 const elementStates = ref<Map<number, ElementState>>(new Map())
+
+// Animation states for visual effects
+const animatingElements = ref<Map<number, { y: number; opacity: number }>>(new Map())
 
 // Current step description
 const currentDescription = ref<string>('')
@@ -111,7 +115,7 @@ const colors = computed<Required<VisualizationColors>>(() => ({
   error: props.config?.colors?.error ?? COLOR_THEMES.default.error!,
   background: props.config?.colors?.background ?? 'transparent',
   text: props.config?.colors?.text ?? '#ffffff',
-  border: props.config?.colors?.border ?? 'transparent',
+  border: props.config?.colors?.border ?? 'rgba(255, 255, 255, 0.2)',
 }))
 
 // Get color for element based on state
@@ -120,12 +124,13 @@ function getElementColor(index: number): string {
   switch (state) {
     case 'highlighted':
       return colors.value.highlight
-    case 'comparing':
-      return colors.value.comparing
-    case 'completed':
-      return colors.value.complete
     case 'active':
+    case 'pushing':
       return colors.value.active
+    case 'peeking':
+      return colors.value.comparing
+    case 'popping':
+      return colors.value.error
     default:
       return colors.value.primary
   }
@@ -227,6 +232,7 @@ function handleSpeedChange(speed: number): void {
 function resetState(): void {
   currentData.value = [...props.data]
   elementStates.value.clear()
+  animatingElements.value.clear()
   currentDescription.value = ''
 }
 
@@ -248,39 +254,31 @@ function applyStep(step: AnimationStep): void {
       targets.forEach((i) => elementStates.value.delete(i as number))
       break
     
-    case 'compare':
-      targets.forEach((i) => elementStates.value.set(i as number, 'comparing'))
-      break
-    
-    case 'swap':
-      if (targets.length === 2) {
-        const [i, j] = targets as [number, number]
-        const temp = currentData.value[i]
-        currentData.value[i] = currentData.value[j]
-        currentData.value[j] = temp
-        // Swap states too
-        const stateI = elementStates.value.get(i)
-        const stateJ = elementStates.value.get(j)
-        if (stateI) elementStates.value.set(j, stateI)
-        if (stateJ) elementStates.value.set(i, stateJ)
+    case 'push':
+      // Add element to stack
+      if (step.value !== undefined) {
+        currentData.value.push(step.value as number | string)
+        elementStates.value.set(currentData.value.length - 1, 'pushing')
+        // Clear animation state after a delay
+        setTimeout(() => {
+          elementStates.value.delete(currentData.value.length - 1)
+        }, 300)
       }
       break
     
-    case 'move':
-      if (targets.length === 2 && step.value !== undefined) {
-        const [from, to] = targets as [number, number]
-        currentData.value[to] = step.value as number
+    case 'pop':
+      // Remove element from stack
+      if (currentData.value.length > 0) {
+        elementStates.value.set(currentData.value.length - 1, 'popping')
+        currentData.value.pop()
       }
       break
     
-    case 'setValue':
-      if (targets.length === 1 && step.value !== undefined) {
-        currentData.value[targets[0] as number] = step.value as number
+    case 'peek':
+      // Highlight top element
+      if (currentData.value.length > 0) {
+        elementStates.value.set(currentData.value.length - 1, 'peeking')
       }
-      break
-    
-    case 'complete':
-      targets.forEach((i) => elementStates.value.set(i as number, 'completed'))
       break
     
     case 'activate':
@@ -293,83 +291,201 @@ function applyStep(step: AnimationStep): void {
   }
 }
 
+// Calculate stack element positions
+interface StackElement {
+  index: number
+  value: number | string
+  x: number
+  y: number
+  width: number
+  height: number
+  isTop: boolean
+}
+
+function calculateStackLayout(
+  data: (number | string)[],
+  options: {
+    width: number
+    height: number
+    itemWidth: number
+    itemHeight: number
+    padding: number
+    maxVisibleItems: number
+  }
+): StackElement[] {
+  const { width, height, itemWidth, itemHeight, padding, maxVisibleItems } = options
+  
+  const elements: StackElement[] = []
+  const centerX = width / 2
+  const bottomY = height - padding
+  
+  // Determine visible range
+  const totalItems = data.length
+  const visibleStart = Math.max(0, totalItems - maxVisibleItems)
+  
+  data.forEach((value, i) => {
+    if (i < visibleStart) return // Skip items not visible
+    
+    const visibleIndex = i - visibleStart
+    const stackIndex = totalItems - 1 - i // Top-to-bottom index
+    
+    const elementWidth = Math.min(itemWidth, width - padding * 2)
+    const elementHeight = itemHeight
+    
+    elements.push({
+      index: i,
+      value,
+      x: centerX - elementWidth / 2,
+      y: bottomY - (visibleIndex + 1) * (elementHeight + 4),
+      width: elementWidth,
+      height: elementHeight,
+      isTop: i === totalItems - 1,
+    })
+  })
+  
+  return elements
+}
+
 // Render the visualization
 function render(): void {
   if (!renderer || !canvasContainerRef.value) return
 
   const { width, height } = canvasContainerRef.value.getBoundingClientRect()
 
-  const bars = calculateArrayLayout(currentData.value, {
+  const elements = calculateStackLayout(currentData.value, {
     width,
     height,
-    barWidth: props.barWidth,
-    gap: props.gap,
+    itemWidth: props.itemWidth,
+    itemHeight: props.itemHeight,
     padding: props.config?.padding ?? 20,
-    orientation: props.orientation,
-    minHeightRatio: props.minHeightRatio,
+    maxVisibleItems: props.maxVisibleItems,
   })
 
   renderer.clearShapes()
 
-  bars.forEach((bar) => {
-    const color = getElementColor(bar.index)
+  // Draw stack container outline (optional visual guide)
+  if (elements.length > 0) {
+    const leftX = elements[0].x - 8
+    const rightX = elements[0].x + elements[0].width + 8
+    const bottomY = height - (props.config?.padding ?? 20)
+    const topY = Math.min(...elements.map(e => e.y)) - 8
+    
+    // Left wall
+    renderer.setShape({
+      id: 'stack-left-wall',
+      type: 'line',
+      x: leftX,
+      y: bottomY,
+      x2: leftX,
+      y2: topY,
+      style: {
+        stroke: 'rgba(100, 116, 139, 0.3)',
+        strokeWidth: 2,
+      },
+    })
+    
+    // Bottom wall
+    renderer.setShape({
+      id: 'stack-bottom-wall',
+      type: 'line',
+      x: leftX,
+      y: bottomY,
+      x2: rightX,
+      y2: bottomY,
+      style: {
+        stroke: 'rgba(100, 116, 139, 0.3)',
+        strokeWidth: 2,
+      },
+    })
+    
+    // Right wall
+    renderer.setShape({
+      id: 'stack-right-wall',
+      type: 'line',
+      x: rightX,
+      y: bottomY,
+      x2: rightX,
+      y2: topY,
+      style: {
+        stroke: 'rgba(100, 116, 139, 0.3)',
+        strokeWidth: 2,
+      },
+    })
+  }
 
-    // Draw bar
+  // Draw stack elements
+  elements.forEach((element) => {
+    const color = getElementColor(element.index)
+    const state = elementStates.value.get(element.index)
+
+    // Draw element box
     renderer!.setShape({
-      id: `bar-${bar.index}`,
+      id: `element-${element.index}`,
       type: 'rect',
-      x: bar.x,
-      y: bar.y,
-      width: bar.width,
-      height: bar.height,
+      x: element.x,
+      y: element.y,
+      width: element.width,
+      height: element.height,
       style: {
         fill: color,
-        borderRadius: 4,
-        shadow: elementStates.value.has(bar.index) 
-          ? { color: color, blur: 8, offsetX: 0, offsetY: 0 }
-          : undefined,
+        borderRadius: 6,
       },
     })
 
     // Draw value text
-    if (props.showValues && bar.height > 20) {
+    if (props.showValues) {
       renderer!.setShape({
-        id: `value-${bar.index}`,
+        id: `value-${element.index}`,
         type: 'text',
-        x: bar.x + bar.width / 2,
-        y: bar.y + 16,
-        text: String(bar.value),
+        x: element.x + element.width / 2,
+        y: element.y + element.height / 2,
+        text: String(element.value),
+        fontSize: 14,
+        fontFamily: 'system-ui, sans-serif',
+        textAlign: 'center',
+        textBaseline: 'middle',
         style: {
           fill: colors.value.text,
-          fontSize: 12,
-          fontFamily: 'system-ui, sans-serif',
-          fontWeight: '500',
-          textAlign: 'center',
         },
       })
     }
 
-    // Draw index
-    if (props.showIndices) {
-      const indexY = props.orientation === 'vertical' 
-        ? bar.y + bar.height + 16 
-        : bar.y + bar.height / 2
-      
+    // Draw "TOP" indicator for top element
+    if (element.isTop && currentData.value.length > 0) {
       renderer!.setShape({
-        id: `index-${bar.index}`,
+        id: 'top-indicator',
         type: 'text',
-        x: bar.x + bar.width / 2,
-        y: indexY,
-        text: String(bar.index),
+        x: element.x - 10,
+        y: element.y + element.height / 2,
+        text: '← TOP',
+        fontSize: 11,
+        fontFamily: 'monospace',
+        textAlign: 'right',
+        textBaseline: 'middle',
         style: {
-          fill: '#94a3b8',
-          fontSize: 10,
-          fontFamily: 'monospace',
-          textAlign: 'center',
+          fill: colors.value.active,
         },
       })
     }
   })
+
+  // Draw empty state
+  if (elements.length === 0) {
+    renderer!.setShape({
+      id: 'empty-text',
+      type: 'text',
+      x: width / 2,
+      y: height / 2,
+      text: '(empty stack)',
+      fontSize: 14,
+      fontFamily: 'system-ui, sans-serif',
+      textAlign: 'center',
+      textBaseline: 'middle',
+      style: {
+        fill: 'rgba(100, 116, 139, 0.5)',
+      },
+    })
+  }
 
   renderer.render()
 }
@@ -426,16 +542,25 @@ defineExpose({
     render()
   },
   seek: (index: number) => player.value?.seek(index),
-  setData: (data: number[]) => {
+  setData: (data: (number | string)[]) => {
     currentData.value = [...data]
     elementStates.value.clear()
     render()
+  },
+  push: (value: number | string) => {
+    currentData.value.push(value)
+    render()
+  },
+  pop: () => {
+    const value = currentData.value.pop()
+    render()
+    return value
   },
 })
 </script>
 
 <style scoped>
-.array-viz {
+.stack-viz {
   width: 100%;
   height: 100%;
   min-height: 300px;
@@ -445,13 +570,38 @@ defineExpose({
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+.stack-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(100, 116, 139, 0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.stack-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.stack-size {
+  font-family: monospace;
+  font-size: 12px;
+  color: #6b7280;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .canvas-container {
   flex: 1;
   min-height: 200px;
   position: relative;
 }
 
-.array-canvas {
+.stack-canvas {
   width: 100%;
   height: 100%;
   display: block;

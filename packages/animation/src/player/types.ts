@@ -11,30 +11,39 @@ export type ActionType =
   | 'traverse'     // Traverse edge/path
   | 'compare'      // Compare two elements
   | 'complete'     // Mark element as complete/sorted
+  | 'push'         // Push to stack
+  | 'pop'          // Pop from stack
+  | 'enqueue'      // Enqueue to queue
+  | 'dequeue'      // Dequeue from queue
+  | 'peek'         // Peek at top/front
+  | 'activate'     // Activate node/element
+  | 'deactivate'   // Deactivate node/element
 
 /**
- * Target for animation - single index or array of indices.
+ * Target for animation - single index, array of indices, or string ID.
  */
-export type StepTarget = number | number[]
+export type StepTarget = number | number[] | string | string[]
 
 /**
  * Single animation step definition.
  */
 export interface AnimationStep {
   /** Type of action to perform */
-  readonly action: ActionType
+  action: ActionType
   /** Target element index or indices */
-  readonly target: StepTarget
-  /** New value (for setValue action) */
-  readonly value?: unknown
+  target: StepTarget
+  /** New value (for setValue, push actions) */
+  value?: number | string | boolean
   /** Animation duration in milliseconds */
-  duration: number
+  duration?: number
   /** Easing function name */
   easing?: string
   /** Delay before animation starts */
   delay?: number
-  /** Optional description for debugging */
+  /** Optional description for display */
   description?: string
+  /** Custom color for highlight */
+  color?: string
 }
 
 /**

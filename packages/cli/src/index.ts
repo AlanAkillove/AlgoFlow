@@ -8,6 +8,8 @@ import { previewCommand } from './commands/preview'
 import { devCommand } from './commands/dev'
 import { buildCommand } from './commands/build'
 import { exportCommand } from './commands/export'
+import { execCommand } from './commands/exec'
+import { demoCommand } from './commands/demo'
 
 const program = new Command()
 
@@ -37,6 +39,23 @@ program
       // No file provided, show help
       program.help()
     }
+  })
+
+// ============================================
+// demo command: Start main demo presentation
+// ============================================
+program
+  .command('demo')
+  .description('Start the main AlgoFlow demo presentation')
+  .alias('d')
+  .option('-p, --port <port>', 'Server port', '3000')
+  .option('-o, --open', 'Open browser automatically', true)
+  .option('--no-open', 'Do not open browser')
+  .action((options) => {
+    demoCommand({
+      port: options.port,
+      open: options.open,
+    })
   })
 
 // ============================================
@@ -124,6 +143,26 @@ program
   })
 
 // ============================================
+// exec command: Execute script to generate animation
+// ============================================
+program
+  .command('exec [file]')
+  .description('Execute a JavaScript or Python script to generate animation JSON')
+  .alias('x')
+  .option('-o, --output <file>', 'Output JSON file path')
+  .option('-t, --timeout <ms>', 'Execution timeout in milliseconds', '5000')
+  .option('-v, --verbose', 'Show detailed output')
+  .option('--template <name>', 'Generate a template script (bubble, stack, queue, quick, py-bubble, py-stack, py-quick)')
+  .action(async (file, options) => {
+    await execCommand(file || '', {
+      output: options.output,
+      timeout: parseInt(options.timeout),
+      verbose: options.verbose || false,
+      template: options.template,
+    })
+  })
+
+// ============================================
 // Error handling
 // ============================================
 program.exitOverride((err) => {
@@ -135,4 +174,3 @@ program.exitOverride((err) => {
 })
 
 program.parse()
-

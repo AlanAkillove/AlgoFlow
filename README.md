@@ -58,7 +58,7 @@ A modern, Markdown-based presentation tool designed for algorithm visualization,
 | `S` | Toggle speaker notes |
 | `P` | Open presenter mode |
 | `G` | Toggle thumbnail navigation |
-| `?` | Show keyboard hints |
+| `shift + /` | Show keyboard hints |
 | `Esc` | Close overlays |
 
 ---

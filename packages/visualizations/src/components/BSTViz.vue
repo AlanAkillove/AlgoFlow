@@ -1,5 +1,5 @@
 <template>
-  <div ref="containerRef" class="array-viz">
+  <div ref="containerRef" class="bst-viz">
     <!-- Step description display -->
     <Transition name="fade">
       <div v-if="currentDescription" class="step-description">
@@ -7,8 +7,23 @@
       </div>
     </Transition>
     
+    <!-- BST info display -->
+    <div class="bst-info">
+      <span class="bst-label">Binary Search Tree</span>
+      <span class="bst-size">Nodes: {{ nodeCount }}</span>
+    </div>
+    
     <div ref="canvasContainerRef" class="canvas-container">
-      <canvas ref="canvasRef" class="array-canvas" />
+      <canvas
+        ref="canvasRef"
+        class="bst-canvas"
+        @mousedown="onMouseDown"
+        @mousemove="onMouseMove"
+        @mouseup="onMouseUp"
+        @mouseleave="onMouseUp"
+        @wheel.prevent="onWheel"
+        @dblclick="resetView"
+      />
     </div>
     
     <PlayerControls
@@ -34,35 +49,30 @@
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { AnimationPlayer, CanvasRenderer } from '@algoflow/animation'
 import type { AnimationStep } from '@algoflow/animation'
-import { calculateArrayLayout } from '../layouts/array'
 import { 
   type VisualizationConfig, 
   type VisualizationColors,
+  type TreeNode,
   COLOR_THEMES 
 } from '../types'
+import { calculateTreeLayout, getTreeEdges, type TreeNodeLayout } from '../layouts/tree'
 import PlayerControls from './PlayerControls.vue'
 
-// Props with full type support
+// Props
 const props = withDefaults(defineProps<{
-  data: number[]
+  data: TreeNode[]
   steps?: AnimationStep[]
   stepIndex?: number
   config?: VisualizationConfig
-  barWidth?: number
-  gap?: number
+  nodeRadius?: number
   showValues?: boolean
-  showIndices?: boolean
-  orientation?: 'horizontal' | 'vertical'
-  minHeightRatio?: number
+  highlightPath?: boolean
 }>(), {
   steps: () => [],
   stepIndex: 0,
-  barWidth: undefined,
-  gap: 2,
+  nodeRadius: 24,
   showValues: true,
-  showIndices: false,
-  orientation: 'vertical',
-  minHeightRatio: 0.05,
+  highlightPath: true,
 })
 
 // Events
@@ -92,14 +102,27 @@ const playerState = reactive({
 })
 
 // Data state
-const currentData = ref<number[]>([...props.data])
+const currentData = ref<TreeNode[]>([...props.data])
 
 // Element states
-type ElementState = 'default' | 'highlighted' | 'comparing' | 'completed' | 'active'
-const elementStates = ref<Map<number, ElementState>>(new Map())
+type ElementState = 'default' | 'highlighted' | 'comparing' | 'inserting' | 'deleting' | 'found' | 'path'
+const elementStates = ref<Map<string, ElementState>>(new Map())
 
 // Current step description
 const currentDescription = ref<string>('')
+
+// Pan and zoom state
+const transform = ref({ x: 0, y: 0, scale: 1 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+
+// Node count
+const nodeCount = computed(() => countNodes(currentData.value[0]))
+
+function countNodes(node: TreeNode | undefined): number {
+  if (!node) return 0
+  return 1 + (node.children?.reduce((sum, child) => sum + countNodes(child), 0) ?? 0)
+}
 
 // Computed colors from config
 const colors = computed<Required<VisualizationColors>>(() => ({
@@ -111,24 +134,74 @@ const colors = computed<Required<VisualizationColors>>(() => ({
   error: props.config?.colors?.error ?? COLOR_THEMES.default.error!,
   background: props.config?.colors?.background ?? 'transparent',
   text: props.config?.colors?.text ?? '#ffffff',
-  border: props.config?.colors?.border ?? 'transparent',
+  border: props.config?.colors?.border ?? 'rgba(255, 255, 255, 0.2)',
 }))
 
-// Get color for element based on state
-function getElementColor(index: number): string {
-  const state = elementStates.value.get(index)
+// Get color for node based on state
+function getNodeColor(nodeId: string): string {
+  const state = elementStates.value.get(nodeId)
   switch (state) {
     case 'highlighted':
+    case 'found':
       return colors.value.highlight
     case 'comparing':
       return colors.value.comparing
-    case 'completed':
+    case 'inserting':
       return colors.value.complete
-    case 'active':
+    case 'deleting':
+      return colors.value.error
+    case 'path':
       return colors.value.active
     default:
       return colors.value.primary
   }
+}
+
+// Pan handlers
+function onMouseDown(e: MouseEvent): void {
+  isDragging.value = true
+  dragStart.value = { x: e.clientX - transform.value.x, y: e.clientY - transform.value.y }
+  if (canvasRef.value) {
+    canvasRef.value.style.cursor = 'grabbing'
+  }
+}
+
+function onMouseMove(e: MouseEvent): void {
+  if (!isDragging.value) return
+  transform.value.x = e.clientX - dragStart.value.x
+  transform.value.y = e.clientY - dragStart.value.y
+  render()
+}
+
+function onMouseUp(): void {
+  isDragging.value = false
+  if (canvasRef.value) {
+    canvasRef.value.style.cursor = 'grab'
+  }
+}
+
+// Zoom handler
+function onWheel(e: WheelEvent): void {
+  const delta = e.deltaY > 0 ? 0.9 : 1.1
+  const newScale = Math.max(0.1, Math.min(5, transform.value.scale * delta))
+  
+  const rect = canvasRef.value?.getBoundingClientRect()
+  if (rect) {
+    const mouseX = e.clientX - rect.left
+    const mouseY = e.clientY - rect.top
+    
+    const scaleChange = newScale / transform.value.scale
+    transform.value.x = mouseX - (mouseX - transform.value.x) * scaleChange
+    transform.value.y = mouseY - (mouseY - transform.value.y) * scaleChange
+  }
+  
+  transform.value.scale = newScale
+  render()
+}
+
+function resetView(): void {
+  transform.value = { x: 0, y: 0, scale: 1 }
+  render()
 }
 
 // Initialize player
@@ -241,135 +314,142 @@ function applyStep(step: AnimationStep): void {
 
   switch (step.action) {
     case 'highlight':
-      targets.forEach((i) => elementStates.value.set(i as number, 'highlighted'))
+      targets.forEach((id) => elementStates.value.set(String(id), 'highlighted'))
       break
     
     case 'unhighlight':
-      targets.forEach((i) => elementStates.value.delete(i as number))
+      targets.forEach((id) => elementStates.value.delete(String(id)))
       break
     
     case 'compare':
-      targets.forEach((i) => elementStates.value.set(i as number, 'comparing'))
+      targets.forEach((id) => elementStates.value.set(String(id), 'comparing'))
       break
     
-    case 'swap':
-      if (targets.length === 2) {
-        const [i, j] = targets as [number, number]
-        const temp = currentData.value[i]
-        currentData.value[i] = currentData.value[j]
-        currentData.value[j] = temp
-        // Swap states too
-        const stateI = elementStates.value.get(i)
-        const stateJ = elementStates.value.get(j)
-        if (stateI) elementStates.value.set(j, stateI)
-        if (stateJ) elementStates.value.set(i, stateJ)
+    case 'traverse':
+      if (props.highlightPath) {
+        targets.forEach((id) => elementStates.value.set(String(id), 'path'))
       }
       break
     
-    case 'move':
-      if (targets.length === 2 && step.value !== undefined) {
-        const [from, to] = targets as [number, number]
-        currentData.value[to] = step.value as number
-      }
-      break
-    
-    case 'setValue':
-      if (targets.length === 1 && step.value !== undefined) {
-        currentData.value[targets[0] as number] = step.value as number
-      }
-      break
-    
-    case 'complete':
-      targets.forEach((i) => elementStates.value.set(i as number, 'completed'))
+    case 'focus':
+      targets.forEach((id) => elementStates.value.set(String(id), 'found'))
       break
     
     case 'activate':
-      targets.forEach((i) => elementStates.value.set(i as number, 'active'))
+      targets.forEach((id) => elementStates.value.set(String(id), 'inserting'))
       break
     
     case 'deactivate':
-      targets.forEach((i) => elementStates.value.delete(i as number))
+      targets.forEach((id) => elementStates.value.delete(String(id)))
       break
   }
 }
 
 // Render the visualization
 function render(): void {
-  if (!renderer || !canvasContainerRef.value) return
+  if (!renderer || !containerRef.value || currentData.value.length === 0) return
 
-  const { width, height } = canvasContainerRef.value.getBoundingClientRect()
+  const { width, height } = containerRef.value.getBoundingClientRect()
+  const root = currentData.value[0]
 
-  const bars = calculateArrayLayout(currentData.value, {
+  const layoutRoot = calculateTreeLayout(root, {
     width,
     height,
-    barWidth: props.barWidth,
-    gap: props.gap,
-    padding: props.config?.padding ?? 20,
-    orientation: props.orientation,
-    minHeightRatio: props.minHeightRatio,
+    padding: props.config?.padding ?? 50,
+    nodeRadius: props.nodeRadius,
   })
 
+  const edges = getTreeEdges(layoutRoot)
+
   renderer.clearShapes()
+  
+  // Helper to apply transform
+  const tx = (x: number) => x * transform.value.scale + transform.value.x
+  const ty = (y: number) => y * transform.value.scale + transform.value.y
+  const ts = (s: number) => s * transform.value.scale
 
-  bars.forEach((bar) => {
-    const color = getElementColor(bar.index)
-
-    // Draw bar
+  // Draw edges first
+  edges.forEach((edge) => {
+    const sourceState = elementStates.value.get(edge.source.id)
+    const isPath = sourceState === 'path'
+    
     renderer!.setShape({
-      id: `bar-${bar.index}`,
-      type: 'rect',
-      x: bar.x,
-      y: bar.y,
-      width: bar.width,
-      height: bar.height,
+      id: `edge-${edge.source.id}-${edge.target.id}`,
+      type: 'line',
+      x: tx(edge.source.x),
+      y: ty(edge.source.y + props.nodeRadius),
+      x2: tx(edge.target.x),
+      y2: ty(edge.target.y - props.nodeRadius),
+      style: {
+        stroke: isPath ? colors.value.active : 'rgba(100, 116, 139, 0.4)',
+        strokeWidth: isPath ? 3 : 2,
+      },
+    })
+  })
+
+  // Collect all nodes via traversal
+  const allNodes: TreeNodeLayout[] = []
+  function collectNodes(node: TreeNodeLayout): void {
+    allNodes.push(node)
+    node.children.forEach(collectNodes)
+  }
+  collectNodes(layoutRoot)
+
+  // Draw nodes
+  allNodes.forEach((node) => {
+    const color = getNodeColor(node.id)
+    const state = elementStates.value.get(node.id)
+
+    // Draw node circle
+    renderer!.setShape({
+      id: `node-${node.id}`,
+      type: 'circle',
+      x: tx(node.x),
+      y: ty(node.y),
+      radius: ts(props.nodeRadius),
       style: {
         fill: color,
-        borderRadius: 4,
-        shadow: elementStates.value.has(bar.index) 
-          ? { color: color, blur: 8, offsetX: 0, offsetY: 0 }
-          : undefined,
+        stroke: state ? color : 'rgba(255, 255, 255, 0.1)',
+        strokeWidth: state ? 3 : 1,
       },
     })
 
     // Draw value text
-    if (props.showValues && bar.height > 20) {
+    if (props.showValues) {
       renderer!.setShape({
-        id: `value-${bar.index}`,
+        id: `value-${node.id}`,
         type: 'text',
-        x: bar.x + bar.width / 2,
-        y: bar.y + 16,
-        text: String(bar.value),
+        x: tx(node.x),
+        y: ty(node.y),
+        text: String(node.value),
+        fontSize: ts(14),
+        fontFamily: 'system-ui, sans-serif',
+        textAlign: 'center',
+        textBaseline: 'middle',
         style: {
           fill: colors.value.text,
-          fontSize: 12,
-          fontFamily: 'system-ui, sans-serif',
-          fontWeight: '500',
-          textAlign: 'center',
-        },
-      })
-    }
-
-    // Draw index
-    if (props.showIndices) {
-      const indexY = props.orientation === 'vertical' 
-        ? bar.y + bar.height + 16 
-        : bar.y + bar.height / 2
-      
-      renderer!.setShape({
-        id: `index-${bar.index}`,
-        type: 'text',
-        x: bar.x + bar.width / 2,
-        y: indexY,
-        text: String(bar.index),
-        style: {
-          fill: '#94a3b8',
-          fontSize: 10,
-          fontFamily: 'monospace',
-          textAlign: 'center',
         },
       })
     }
   })
+
+  // Draw empty state
+  if (allNodes.length === 0) {
+    renderer!.setShape({
+      id: 'empty-text',
+      type: 'text',
+      x: width / 2,
+      y: height / 2,
+      text: '(empty BST)',
+      fontSize: 14,
+      fontFamily: 'system-ui, sans-serif',
+      textAlign: 'center',
+      textBaseline: 'middle',
+      style: {
+        fill: 'rgba(100, 116, 139, 0.5)',
+      },
+    })
+  }
 
   renderer.render()
 }
@@ -426,16 +506,17 @@ defineExpose({
     render()
   },
   seek: (index: number) => player.value?.seek(index),
-  setData: (data: number[]) => {
+  setData: (data: TreeNode[]) => {
     currentData.value = [...data]
     elementStates.value.clear()
     render()
   },
+  resetView,
 })
 </script>
 
 <style scoped>
-.array-viz {
+.bst-viz {
   width: 100%;
   height: 100%;
   min-height: 300px;
@@ -445,16 +526,46 @@ defineExpose({
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+.bst-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(100, 116, 139, 0.1);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.bst-label {
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+}
+
+.bst-size {
+  font-family: monospace;
+  font-size: 12px;
+  color: #6b7280;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .canvas-container {
   flex: 1;
   min-height: 200px;
   position: relative;
 }
 
-.array-canvas {
+.bst-canvas {
   width: 100%;
   height: 100%;
   display: block;
+  cursor: grab;
+}
+
+.bst-canvas:active {
+  cursor: grabbing;
 }
 
 .step-description {

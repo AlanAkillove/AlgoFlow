@@ -1,0 +1,64 @@
+{
+  "version": "1.0",
+  "type": "heap",
+  "initialData": [16, 14, 10, 8, 7, 9, 3, 2, 4, 1],
+  "config": {
+    "heapType": "max",
+    "nodeRadius": 24,
+    "showValues": true,
+    "showIndices": false
+  },
+  "steps": [
+    {
+      "action": "highlight",
+      "target": 0,
+      "duration": 400,
+      "description": "Max heap root: 16"
+    },
+    {
+      "action": "compare",
+      "target": [0, 1],
+      "duration": 300,
+      "description": "Compare root(16) with left child(14)"
+    },
+    {
+      "action": "compare",
+      "target": [0, 2],
+      "duration": 300,
+      "description": "Compare root(16) with right child(10)"
+    },
+    {
+      "action": "swap",
+      "target": [0, 9],
+      "duration": 500,
+      "description": "Extract max: swap root with last element"
+    },
+    {
+      "action": "pop",
+      "target": 0,
+      "duration": 300,
+      "description": "Remove 16 from heap"
+    },
+    {
+      "action": "highlight",
+      "target": 0,
+      "duration": 400,
+      "description": "New root: 14 (after heapify)"
+    },
+    {
+      "action": "complete",
+      "target": [0],
+      "duration": 300,
+      "description": "Extracted max value: 16"
+    }
+  ],
+  "metadata": {
+    "title": "Max Heap Demo",
+    "algorithm": "Heap",
+    "description": "Demonstrates max heap extraction",
+    "complexity": {
+      "time": "O(log n)",
+      "space": "O(1)"
+    }
+  }
+}

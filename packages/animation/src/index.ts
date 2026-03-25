@@ -7,7 +7,14 @@
 // Player exports
 export { AnimationPlayer } from './player/AnimationPlayer'
 export { StepQueue } from './player/StepQueue'
-export type { AnimationStep, PlayerOptions, PlayerState, PlayerEvent } from './player/types'
+export type { 
+  AnimationStep, 
+  ActionType, 
+  StepTarget,
+  PlayerOptions, 
+  PlayerState, 
+  PlayerEvent 
+} from './player/types'
 
 // Canvas exports
 export { CanvasRenderer } from './canvas/CanvasRenderer'

@@ -3,11 +3,26 @@ import { h, resolveComponent, type VNode, ref, onMounted, watch, computed, injec
 import { marked, type Tokens } from 'marked'
 import { codeToHtml, createHighlighter, type Highlighter } from 'shiki'
 import { transformerNotationDiff, transformerNotationFocus } from '@shikijs/transformers'
+import katex from 'katex'
+import { 
+  layoutToStyles, 
+  getAnimationConfig, 
+  getTransitionConfig,
+  type LayoutConfig, 
+  type AnimationConfig, 
+  type TransitionConfig 
+} from '@algoflow/core'
+
+// Import KaTeX CSS
+import 'katex/dist/katex.min.css'
 
 const props = defineProps<{
   content: string
   frontmatter: Record<string, unknown>
   exportMode?: boolean
+  layout?: LayoutConfig
+  animation?: AnimationConfig
+  transition?: TransitionConfig
 }>()
 
 // Inject click animation state from parent
@@ -18,6 +33,15 @@ const totalClicks = inject<Ref<number>>('totalClicks', ref(0))
 const highlighter = ref<Highlighter | null>(null)
 const isReady = ref(false)
 const slideContentRef = ref<HTMLElement | null>(null)
+
+// Computed styles from layout config
+const layoutStyles = computed(() => layoutToStyles(props.layout))
+
+// Computed transition config
+const transitionConfig = computed(() => getTransitionConfig(props.transition))
+
+// Computed animation config
+const animationConfig = computed(() => getAnimationConfig(props.animation))
 
 // Initialize highlighter
 onMounted(async () => {
@@ -56,6 +80,41 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
+}
+
+// Render LaTeX formula using KaTeX
+function renderLatex(latex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(latex, {
+      displayMode,
+      throwOnError: false,
+      strict: false,
+    })
+  } catch (e) {
+    console.warn('KaTeX render error:', e)
+    // Fallback: show the raw LaTeX
+    return `<span class="latex-error">${escapeHtml(latex)}</span>`
+  }
+}
+
+// Process LaTeX formulas in HTML content
+function processLatex(html: string): string {
+  // Process display math $$...$$ first (must be on its own line or inline)
+  html = html.replace(/\$\$([\s\S]+?)\$\$/g, (_, latex) => {
+    return renderLatex(latex.trim(), true)
+  })
+  
+  // Process inline math $...$
+  // Be careful not to match currency amounts like $5.00
+  html = html.replace(/\$([^$\n]+?)\$/g, (_, latex) => {
+    // Skip if it looks like a currency amount
+    if (/^\d+\.?\d*$/.test(latex.trim())) {
+      return `$${latex}$`
+    }
+    return renderLatex(latex.trim(), false)
+  })
+  
+  return html
 }
 
 // Custom code renderer with Shiki
@@ -113,7 +172,7 @@ function parseComponentTags(markdown: string): { markdown: string; components: C
   
   // Match self-closing component tags like <ArrayViz :data="[1,2,3]" />
   // Support multi-line attributes with [\s\S]*?
-  const componentRegex = /<(ArrayViz|TreeViz|GraphViz|PlayerControls)([\s\S]*?)\/>/g
+  const componentRegex = /<(ArrayViz|TreeViz|GraphViz|StackViz|QueueViz|HeapViz|BSTViz|SortingViz|PlayerControls)([\s\S]*?)\/>/g
   
   let processedMarkdown = markdown
   let match
@@ -178,13 +237,34 @@ function parseComponentTags(markdown: string): { markdown: string; components: C
         const placeholder = `[[COMPONENT_${components.length}]]`
         processedMarkdown = processedMarkdown.substring(0, startIndex) + placeholder + processedMarkdown.substring(startIndex + fullMatch.length)
         
+        // Build props based on component type
+        const componentProps: Record<string, unknown> = {}
+        
+        // Common props
+        if (config.initialData !== undefined) {
+          componentProps.data = config.initialData
+        }
+        if (config.data !== undefined) {
+          componentProps.data = config.data
+        }
+        if (config.steps) {
+          componentProps.steps = config.steps
+        }
+        if (config.config) {
+          Object.assign(componentProps, config.config)
+        }
+        
+        // Tree/BST specific - handle nested data structure
+        if (config.type === 'tree' || config.type === 'bst') {
+          if (config.initialData && typeof config.initialData === 'object') {
+            componentProps.data = [config.initialData]
+          }
+        }
+        
         components.push({
           type: 'component',
           component: componentName,
-          props: {
-            data: config.data,
-            steps: config.steps || [],
-          },
+          props: componentProps,
         })
       }
     } catch (e) {
@@ -202,6 +282,11 @@ function getComponentName(type: string): string | null {
     'array': 'ArrayViz',
     'tree': 'TreeViz',
     'graph': 'GraphViz',
+    'stack': 'StackViz',
+    'queue': 'QueueViz',
+    'heap': 'HeapViz',
+    'bst': 'BSTViz',
+    'sorting': 'SortingViz',
   }
   return typeMap[type] || null
 }
@@ -212,7 +297,8 @@ const isLoading = ref(true)
 
 // Process markdown with async code highlighting
 async function processMarkdown(markdown: string): Promise<string> {
-  const tokens = marked.lexer(markdown)
+  // Enable GFM (GitHub Flavored Markdown) for tables, strikethrough, etc.
+  const tokens = marked.lexer(markdown, { gfm: true })
   let html = ''
   
   for (const token of tokens) {
@@ -225,6 +311,9 @@ async function processMarkdown(markdown: string): Promise<string> {
       html += marked.parser([token])
     }
   }
+  
+  // Process LaTeX formulas after markdown parsing
+  html = processLatex(html)
   
   return html
 }
@@ -337,7 +426,12 @@ function renderSegment(segment: ContentSegment): VNode {
 <template>
   <div 
     class="slide-renderer" 
-    :class="frontmatter.layout ? `layout-${frontmatter.layout}` : ''"
+    :class="[
+      frontmatter.layout ? `layout-${frontmatter.layout}` : '',
+      transitionConfig.type !== 'none' ? `transition-${transitionConfig.type}` : '',
+      animationConfig.type !== 'none' ? `animation-${animationConfig.type}` : ''
+    ]"
+    :style="layoutStyles"
   >
     <div class="slide-content" ref="slideContentRef">
       <template v-for="(segment, index) in contentSegments" :key="index">
@@ -368,6 +462,138 @@ function renderSegment(segment: ContentSegment): VNode {
     transform: translateX(0);
   }
 }
+
+/* ========================================
+   Transition Effects (幻灯片切换动画)
+   ======================================== */
+
+/* Slide transition */
+.transition-slide {
+  animation: slideIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Fade transition */
+.transition-fade {
+  animation: fadeInTransition 0.3s ease-in-out;
+}
+
+@keyframes fadeInTransition {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Zoom transition */
+.transition-zoom {
+  animation: zoomIn 0.3s ease-out;
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Flip transition */
+.transition-flip {
+  animation: flipIn 0.4s ease-in-out;
+  perspective: 1000px;
+}
+
+@keyframes flipIn {
+  from {
+    opacity: 0;
+    transform: perspective(1000px) rotateY(-90deg);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(1000px) rotateY(0);
+  }
+}
+
+/* ========================================
+   Animation Effects (内容动画)
+   ======================================== */
+
+/* Fade-in animation */
+.animation-fade-in .slide-content > * {
+  animation: contentFadeIn 0.3s ease-out forwards;
+}
+
+/* Slide-in animation */
+.animation-slide-in .slide-content > * {
+  animation: slideInContent 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slideInContent {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Zoom-in animation */
+.animation-zoom-in .slide-content > * {
+  animation: zoomInContent 0.3s ease-out forwards;
+}
+
+@keyframes zoomInContent {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Bounce-in animation */
+.animation-bounce-in .slide-content > * {
+  animation: bounceInContent 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+}
+
+@keyframes bounceInContent {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* No animation */
+.animation-none {
+  animation: none !important;
+}
+
+.animation-none .slide-content > * {
+  animation: none !important;
+  opacity: 1;
+}
+
+/* ======================================== */
 
 .layout-center .slide-content {
   text-align: center;
@@ -682,4 +908,68 @@ function renderSegment(segment: ContentSegment): VNode {
 .shiki.fallback {
   background: linear-gradient(135deg, #2d2d3a 0%, #1f1f2e 100%) !important;
 }
+
+/* LaTeX styles */
+.latex-error {
+  color: var(--af-error, #ef4444);
+  font-family: var(--af-font-mono, monospace);
+  background: rgba(239, 68, 68, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* KaTeX display math */
+.katex-display {
+  margin: 1em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5em 0;
+}
+
+/* KaTeX inline math */
+.katex {
+  font-size: 1.1em;
+}
+
+/* Dark theme support for KaTeX */
+:global(.theme-dark) .katex {
+  color: #e4e4e7;
+}
+
+/* ========================================
+   Table Styles (表格样式)
+   ======================================== */
+
+.slide-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.9em;
+}
+
+.slide-content table th,
+.slide-content table td {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.slide-content table th {
+  background: rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+
+.slide-content table tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.slide-content table tr:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* Center-aligned tables */
+.layout-center .slide-content table {
+  margin: 1em auto;
+}
+
 </style>

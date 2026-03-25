@@ -1,0 +1,49 @@
+{
+  "version": "1.0",
+  "type": "stack",
+  "initialData": [
+    10,
+    20,
+    30
+  ],
+  "steps": [
+    {
+      "action": "peek",
+      "target": 2,
+      "duration": 300,
+      "description": "查看栈顶元素"
+    },
+    {
+      "action": "push",
+      "target": 3,
+      "value": 40,
+      "duration": 300,
+      "description": "Push 40"
+    },
+    {
+      "action": "push",
+      "target": 4,
+      "value": 50,
+      "duration": 300,
+      "description": "Push 50"
+    },
+    {
+      "action": "pop",
+      "target": 4,
+      "duration": 300,
+      "description": "Pop 栈顶元素"
+    },
+    {
+      "action": "push",
+      "target": 4,
+      "value": 60,
+      "duration": 300,
+      "description": "Push 60"
+    }
+  ],
+  "metadata": {
+    "title": "Stack Operations",
+    "algorithm": "stack",
+    "description": "演示 push、pop、peek 操作"
+  }
+}

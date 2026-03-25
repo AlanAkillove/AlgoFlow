@@ -1,7 +1,17 @@
 import type { CanvasOptions, Shape, ShapeStyle, RectShape, CircleShape, LineShape, TextShape, PathShape, AnyShape } from './types'
 
 /**
- * Canvas renderer for drawing shapes.
+ * Dirty rectangle for incremental rendering.
+ */
+interface DirtyRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * Canvas renderer for drawing shapes with incremental update support.
  */
 export class CanvasRenderer {
   private canvas: HTMLCanvasElement
@@ -11,6 +21,13 @@ export class CanvasRenderer {
   private pixelRatio: number
   private backgroundColor: string
   private shapes: Map<string, AnyShape> = new Map()
+  
+  // Incremental rendering support
+  private dirtyRects: DirtyRect[] = []
+  private offscreenCanvas: HTMLCanvasElement | null = null
+  private offscreenCtx: CanvasRenderingContext2D | null = null
+  private useIncrementalRendering: boolean = true
+  private shapeBounds: Map<string, DirtyRect> = new Map()
 
   constructor(canvas: HTMLCanvasElement, options: CanvasOptions) {
     this.canvas = canvas
@@ -19,8 +36,14 @@ export class CanvasRenderer {
     this.height = options.height
     this.pixelRatio = options.pixelRatio ?? window.devicePixelRatio
     this.backgroundColor = options.backgroundColor ?? 'transparent'
+    this.useIncrementalRendering = options.useIncrementalRendering ?? true
 
     this.setupCanvas()
+    
+    // Initialize offscreen canvas for caching
+    if (this.useIncrementalRendering) {
+      this.initOffscreenCanvas()
+    }
   }
 
   /**
@@ -42,12 +65,32 @@ export class CanvasRenderer {
   }
 
   /**
+   * Initialize offscreen canvas for caching static content.
+   */
+  private initOffscreenCanvas(): void {
+    this.offscreenCanvas = document.createElement('canvas')
+    this.offscreenCanvas.width = this.width * this.pixelRatio
+    this.offscreenCanvas.height = this.height * this.pixelRatio
+    this.offscreenCtx = this.offscreenCanvas.getContext('2d')!
+    this.offscreenCtx.scale(this.pixelRatio, this.pixelRatio)
+  }
+
+  /**
    * Resize canvas.
    */
   resize(width: number, height: number): void {
     this.width = width
     this.height = height
     this.setupCanvas()
+    
+    // Resize offscreen canvas too
+    if (this.offscreenCanvas) {
+      this.offscreenCanvas.width = this.width * this.pixelRatio
+      this.offscreenCanvas.height = this.height * this.pixelRatio
+      this.offscreenCtx = this.offscreenCanvas.getContext('2d')!
+      this.offscreenCtx.scale(this.pixelRatio, this.pixelRatio)
+    }
+    
     this.render()
   }
 
@@ -66,13 +109,32 @@ export class CanvasRenderer {
    * Add or update a shape.
    */
   setShape(shape: AnyShape): void {
+    const oldBounds = this.shapeBounds.get(shape.id)
+    
+    // Mark old bounds as dirty if shape existed
+    if (oldBounds) {
+      this.markDirty(oldBounds)
+    }
+    
     this.shapes.set(shape.id, shape)
+    
+    // Calculate and store new bounds
+    const newBounds = this.calculateShapeBounds(shape)
+    this.shapeBounds.set(shape.id, newBounds)
+    
+    // Mark new bounds as dirty
+    this.markDirty(newBounds)
   }
 
   /**
    * Remove a shape.
    */
   removeShape(id: string): boolean {
+    const bounds = this.shapeBounds.get(id)
+    if (bounds) {
+      this.markDirty(bounds)
+      this.shapeBounds.delete(id)
+    }
     return this.shapes.delete(id)
   }
 
@@ -88,14 +150,139 @@ export class CanvasRenderer {
    */
   clearShapes(): void {
     this.shapes.clear()
+    this.shapeBounds.clear()
+    this.dirtyRects = []
   }
 
   /**
-   * Render all shapes.
+   * Mark a region as dirty for incremental rendering.
+   */
+  markDirty(rect: DirtyRect): void {
+    // Expand rect with padding to account for stroke width
+    const padding = 5
+    this.dirtyRects.push({
+      x: Math.max(0, rect.x - padding),
+      y: Math.max(0, rect.y - padding),
+      width: Math.min(this.width, rect.width + padding * 2),
+      height: Math.min(this.height, rect.height + padding * 2),
+    })
+  }
+
+  /**
+   * Calculate bounding box for a shape.
+   */
+  private calculateShapeBounds(shape: Shape): DirtyRect {
+    switch (shape.type) {
+      case 'rect': {
+        const s = shape as RectShape
+        return { x: s.x, y: s.y, width: s.width, height: s.height }
+      }
+      case 'circle': {
+        const s = shape as CircleShape
+        return { 
+          x: s.x - s.radius, 
+          y: s.y - s.radius, 
+          width: s.radius * 2, 
+          height: s.radius * 2 
+        }
+      }
+      case 'line': {
+        const s = shape as LineShape
+        const minX = Math.min(s.x, s.x2)
+        const minY = Math.min(s.y, s.y2)
+        const maxX = Math.max(s.x, s.x2)
+        const maxY = Math.max(s.y, s.y2)
+        return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+      }
+      case 'text': {
+        const s = shape as TextShape
+        const fontSize = s.fontSize ?? 14
+        // Approximate text bounds
+        return { x: s.x - 50, y: s.y - fontSize, width: 100, height: fontSize * 1.5 }
+      }
+      case 'path': {
+        // Use canvas bounds as fallback for complex paths
+        return { x: 0, y: 0, width: this.width, height: this.height }
+      }
+      default:
+        return { x: 0, y: 0, width: this.width, height: this.height }
+    }
+  }
+
+  /**
+   * Merge overlapping dirty rects for efficiency.
+   */
+  private mergeDirtyRects(): DirtyRect[] {
+    if (this.dirtyRects.length === 0) return []
+    if (this.dirtyRects.length === 1) return this.dirtyRects
+
+    // Simple merge: combine all rects into one bounding rect
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const rect of this.dirtyRects) {
+      minX = Math.min(minX, rect.x)
+      minY = Math.min(minY, rect.y)
+      maxX = Math.max(maxX, rect.x + rect.width)
+      maxY = Math.max(maxY, rect.y + rect.height)
+    }
+    
+    return [{ x: minX, y: minY, width: maxX - minX, height: maxY - minY }]
+  }
+
+  /**
+   * Render all shapes (full render).
    */
   render(): void {
     this.clear()
     this.shapes.forEach(shape => this.drawShape(shape))
+    this.dirtyRects = []
+  }
+
+  /**
+   * Render only dirty regions (incremental render).
+   */
+  renderIncremental(): void {
+    if (this.dirtyRects.length === 0) return
+
+    const mergedRects = this.mergeDirtyRects()
+    
+    for (const rect of mergedRects) {
+      // Clear only the dirty region
+      this.ctx.save()
+      this.ctx.beginPath()
+      this.ctx.rect(rect.x, rect.y, rect.width, rect.height)
+      this.ctx.clip()
+      
+      // Clear the region
+      this.ctx.clearRect(rect.x, rect.y, rect.width, rect.height)
+      if (this.backgroundColor !== 'transparent') {
+        this.ctx.fillStyle = this.backgroundColor
+        this.ctx.fillRect(rect.x, rect.y, rect.width, rect.height)
+      }
+      
+      // Redraw shapes that intersect with this region
+      this.shapes.forEach(shape => {
+        const bounds = this.shapeBounds.get(shape.id)
+        if (bounds && this.rectsIntersect(rect, bounds)) {
+          this.drawShape(shape)
+        }
+      })
+      
+      this.ctx.restore()
+    }
+    
+    this.dirtyRects = []
+  }
+
+  /**
+   * Check if two rectangles intersect.
+   */
+  private rectsIntersect(a: DirtyRect, b: DirtyRect): boolean {
+    return !(
+      a.x + a.width < b.x ||
+      b.x + b.width < a.x ||
+      a.y + a.height < b.y ||
+      b.y + b.height < a.y
+    )
   }
 
   /**
@@ -247,5 +434,16 @@ export class CanvasRenderer {
    */
   toDataURL(type = 'image/png'): string {
     return this.canvas.toDataURL(type)
+  }
+
+  /**
+   * Destroy renderer and free resources.
+   */
+  destroy(): void {
+    this.shapes.clear()
+    this.shapeBounds.clear()
+    this.dirtyRects = []
+    this.offscreenCanvas = null
+    this.offscreenCtx = null
   }
 }

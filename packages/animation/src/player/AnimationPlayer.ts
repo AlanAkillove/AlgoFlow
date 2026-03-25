@@ -166,6 +166,25 @@ export class AnimationPlayer {
   }
 
   /**
+   * Destroy the player and free resources.
+   */
+  destroy(): void {
+    // Stop any running animation
+    if (this.currentAnimation) {
+      this.currentAnimation.pause()
+      this.currentAnimation = null
+    }
+    
+    // Clear state
+    this.isPlaying = false
+    this.isPaused = false
+    this.queue.reset()
+    
+    // Clear all event listeners
+    this.eventListeners.clear()
+  }
+
+  /**
    * Replace all steps.
    */
   setSteps(steps: AnimationStep[]): void {
@@ -233,7 +252,8 @@ export class AnimationPlayer {
    */
   private executeStep(step: AnimationStep): Promise<void> {
     return new Promise((resolve) => {
-      const adjustedDuration = step.duration / this.speed
+      const duration = step.duration ?? 300
+      const adjustedDuration = duration / this.speed
 
       this.currentAnimation = anime({
         targets: {},

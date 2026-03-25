@@ -1,0 +1,395 @@
+{
+  "version": "1.0",
+  "type": "array",
+  "initialData": [
+    64,
+    34,
+    25,
+    12,
+    22,
+    11,
+    90
+  ],
+  "steps": [
+    {
+      "action": "compare",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "比较 64 和 34"
+    },
+    {
+      "action": "swap",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "交换 64 和 34"
+    },
+    {
+      "action": "compare",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "比较 64 和 25"
+    },
+    {
+      "action": "swap",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "交换 64 和 25"
+    },
+    {
+      "action": "compare",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "比较 64 和 12"
+    },
+    {
+      "action": "swap",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "交换 64 和 12"
+    },
+    {
+      "action": "compare",
+      "target": [
+        3,
+        4
+      ],
+      "duration": 300,
+      "description": "比较 64 和 22"
+    },
+    {
+      "action": "swap",
+      "target": [
+        3,
+        4
+      ],
+      "duration": 300,
+      "description": "交换 64 和 22"
+    },
+    {
+      "action": "compare",
+      "target": [
+        4,
+        5
+      ],
+      "duration": 300,
+      "description": "比较 64 和 11"
+    },
+    {
+      "action": "swap",
+      "target": [
+        4,
+        5
+      ],
+      "duration": 300,
+      "description": "交换 64 和 11"
+    },
+    {
+      "action": "compare",
+      "target": [
+        5,
+        6
+      ],
+      "duration": 300,
+      "description": "比较 64 和 90"
+    },
+    {
+      "action": "complete",
+      "target": [
+        6
+      ],
+      "duration": 300,
+      "description": "位置 6 已排序"
+    },
+    {
+      "action": "compare",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "比较 34 和 25"
+    },
+    {
+      "action": "swap",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "交换 34 和 25"
+    },
+    {
+      "action": "compare",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "比较 34 和 12"
+    },
+    {
+      "action": "swap",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "交换 34 和 12"
+    },
+    {
+      "action": "compare",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "比较 34 和 22"
+    },
+    {
+      "action": "swap",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "交换 34 和 22"
+    },
+    {
+      "action": "compare",
+      "target": [
+        3,
+        4
+      ],
+      "duration": 300,
+      "description": "比较 34 和 11"
+    },
+    {
+      "action": "swap",
+      "target": [
+        3,
+        4
+      ],
+      "duration": 300,
+      "description": "交换 34 和 11"
+    },
+    {
+      "action": "compare",
+      "target": [
+        4,
+        5
+      ],
+      "duration": 300,
+      "description": "比较 34 和 64"
+    },
+    {
+      "action": "complete",
+      "target": [
+        5
+      ],
+      "duration": 300,
+      "description": "位置 5 已排序"
+    },
+    {
+      "action": "compare",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "比较 25 和 12"
+    },
+    {
+      "action": "swap",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "交换 25 和 12"
+    },
+    {
+      "action": "compare",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "比较 25 和 22"
+    },
+    {
+      "action": "swap",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "交换 25 和 22"
+    },
+    {
+      "action": "compare",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "比较 25 和 11"
+    },
+    {
+      "action": "swap",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "交换 25 和 11"
+    },
+    {
+      "action": "compare",
+      "target": [
+        3,
+        4
+      ],
+      "duration": 300,
+      "description": "比较 25 和 34"
+    },
+    {
+      "action": "complete",
+      "target": [
+        4
+      ],
+      "duration": 300,
+      "description": "位置 4 已排序"
+    },
+    {
+      "action": "compare",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "比较 12 和 22"
+    },
+    {
+      "action": "compare",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "比较 22 和 11"
+    },
+    {
+      "action": "swap",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "交换 22 和 11"
+    },
+    {
+      "action": "compare",
+      "target": [
+        2,
+        3
+      ],
+      "duration": 300,
+      "description": "比较 22 和 25"
+    },
+    {
+      "action": "complete",
+      "target": [
+        3
+      ],
+      "duration": 300,
+      "description": "位置 3 已排序"
+    },
+    {
+      "action": "compare",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "比较 12 和 11"
+    },
+    {
+      "action": "swap",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "交换 12 和 11"
+    },
+    {
+      "action": "compare",
+      "target": [
+        1,
+        2
+      ],
+      "duration": 300,
+      "description": "比较 12 和 22"
+    },
+    {
+      "action": "complete",
+      "target": [
+        2
+      ],
+      "duration": 300,
+      "description": "位置 2 已排序"
+    },
+    {
+      "action": "compare",
+      "target": [
+        0,
+        1
+      ],
+      "duration": 300,
+      "description": "比较 11 和 12"
+    },
+    {
+      "action": "complete",
+      "target": [
+        1
+      ],
+      "duration": 300,
+      "description": "位置 1 已排序"
+    },
+    {
+      "action": "complete",
+      "target": [
+        0
+      ],
+      "duration": 300,
+      "description": "排序完成"
+    }
+  ],
+  "config": {},
+  "metadata": {
+    "title": "Bubble Sort",
+    "algorithm": "bubble",
+    "complexity": {
+      "time": "O(n²)",
+      "space": "O(1)"
+    }
+  }
+}

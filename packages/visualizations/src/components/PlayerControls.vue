@@ -116,19 +116,19 @@ function handleSpeedChange(event: Event): void {
 }
 
 .control-btn {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border: none;
-  border-radius: 12px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
 }
 
 .control-btn:hover:not(:disabled) {
@@ -149,12 +149,15 @@ function handleSpeedChange(event: Event): void {
 
 .step-indicator {
   font-family: var(--af-font-mono, 'JetBrains Mono', monospace);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   color: #374151;
-  min-width: 70px;
+  min-width: 80px;
   text-align: center;
-  padding: 0 8px;
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
 }
 
 .speed-control {

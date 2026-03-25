@@ -23,9 +23,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@algoflow/animation": "workspace:^",
     "@algoflow/core": "workspace:*",
     "@algoflow/visualizations": "workspace:*",
     "ajv": "^8.12.0",
+    "ajv-formats": "^3.0.1",
     "commander": "^12.0.0",
     "open": "^11.0.0",
     "picocolors": "^1.0.0",

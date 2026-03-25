@@ -13,7 +13,7 @@
     },
     "type": {
       "type": "string",
-      "enum": ["array", "tree", "graph"],
+      "enum": ["array", "tree", "graph", "stack", "queue", "heap", "bst", "sorting"],
       "description": "Visualization type"
     },
     "initialData": {
@@ -21,20 +21,56 @@
         {
           "type": "array",
           "items": {
-            "type": "number"
+            "oneOf": [
+              { "type": "number" },
+              { "type": "string" }
+            ]
           },
-          "description": "Array data (for array type)"
+          "description": "Array/Stack/Queue data"
         },
         {
           "type": "object",
-          "description": "Tree data (for tree type)",
+          "description": "Tree/BST data (for tree type)",
           "required": ["value", "id"],
           "properties": {
             "value": { "oneOf": [{ "type": "number" }, { "type": "string" }] },
             "id": { "type": "string" },
             "children": {
               "type": "array",
-              "items": { "$ref": "#/properties/initialData" }
+              "items": { "$ref": "#/properties/initialData/oneOf/1" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "description": "Graph data (for graph type)",
+          "required": ["nodes"],
+          "properties": {
+            "nodes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "label": { "oneOf": [{ "type": "number" }, { "type": "string" }] },
+                  "x": { "type": "number" },
+                  "y": { "type": "number" }
+                }
+              }
+            },
+            "edges": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["source", "target"],
+                "properties": {
+                  "source": { "type": "string" },
+                  "target": { "type": "string" },
+                  "weight": { "type": "number" },
+                  "directed": { "type": "boolean", "default": false }
+                }
+              }
             }
           }
         }
@@ -48,9 +84,72 @@
         "width": { "type": "number" },
         "height": { "type": "number" },
         "speed": { "type": "number", "minimum": 0.1, "maximum": 10 },
+        "padding": { "type": "number" },
         "primaryColor": { "type": "string" },
         "highlightColor": { "type": "string" },
-        "backgroundColor": { "type": "string" }
+        "backgroundColor": { "type": "string" },
+        "textColor": { "type": "string" },
+        "showValues": { "type": "boolean", "default": true },
+        "showIndices": { "type": "boolean", "default": false },
+        "orientation": {
+          "type": "string",
+          "enum": ["horizontal", "vertical"],
+          "default": "vertical"
+        },
+        "heapType": {
+          "type": "string",
+          "enum": ["min", "max"],
+          "default": "max"
+        },
+        "circular": {
+          "type": "boolean",
+          "default": false,
+          "description": "For queue: circular queue mode"
+        },
+        "capacity": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "For circular queue: max capacity"
+        },
+        "showPointers": {
+          "type": "boolean",
+          "default": true,
+          "description": "For stack/queue: show top/front/rear pointers"
+        },
+        "nodeRadius": {
+          "type": "number",
+          "minimum": 10,
+          "default": 24,
+          "description": "For tree/graph/heap/bst: node radius"
+        },
+        "itemHeight": {
+          "type": "number",
+          "minimum": 20,
+          "default": 40,
+          "description": "For stack: item height"
+        },
+        "itemWidth": {
+          "type": "number",
+          "minimum": 40,
+          "default": 80,
+          "description": "For stack/queue: item width"
+        },
+        "itemSize": {
+          "type": "number",
+          "minimum": 20,
+          "default": 50,
+          "description": "For queue: item size (square)"
+        },
+        "algorithm": {
+          "type": "string",
+          "enum": ["bubble", "selection", "insertion", "quick", "merge", "heap"],
+          "description": "For sorting: algorithm to use"
+        },
+        "autoGenerateSteps": {
+          "type": "boolean",
+          "default": true,
+          "description": "For sorting: auto-generate steps from data"
+        }
       }
     },
     "steps": {
@@ -71,23 +170,36 @@
               "focus",
               "traverse",
               "compare",
-              "complete"
+              "complete",
+              "push",
+              "pop",
+              "enqueue",
+              "dequeue",
+              "peek",
+              "activate",
+              "deactivate"
             ],
             "description": "Type of action to perform"
           },
           "target": {
             "oneOf": [
               { "type": "integer", "minimum": 0 },
+              { "type": "string" },
               { 
                 "type": "array", 
-                "items": { "type": "integer", "minimum": 0 },
+                "items": { 
+                  "oneOf": [
+                    { "type": "integer", "minimum": 0 },
+                    { "type": "string" }
+                  ]
+                },
                 "minItems": 1
               }
             ],
-            "description": "Target element index or indices"
+            "description": "Target element index, id, or indices"
           },
           "value": {
-            "description": "New value (for setValue action)",
+            "description": "New value (for setValue, push, enqueue actions)",
             "oneOf": [
               { "type": "number" },
               { "type": "string" },
@@ -113,7 +225,11 @@
           },
           "description": {
             "type": "string",
-            "description": "Optional description for debugging"
+            "description": "Optional description for debugging/display"
+          },
+          "color": {
+            "type": "string",
+            "description": "Custom color for highlight action"
           }
         },
         "additionalProperties": false
@@ -127,7 +243,14 @@
         "author": { "type": "string" },
         "algorithm": { "type": "string" },
         "created": { "type": "string", "format": "date-time" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "complexity": {
+          "type": "object",
+          "properties": {
+            "time": { "type": "string" },
+            "space": { "type": "string" }
+          }
+        }
       }
     }
   }

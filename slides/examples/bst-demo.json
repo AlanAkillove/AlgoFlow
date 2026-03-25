@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "type": "bst",
+  "initialData": {
+    "value": 50,
+    "id": "root",
+    "children": [
+      {
+        "value": 30,
+        "id": "l1",
+        "children": [
+          { "value": 20, "id": "l2", "children": [] },
+          { "value": 40, "id": "r2", "children": [] }
+        ]
+      },
+      {
+        "value": 70,
+        "id": "r1",
+        "children": [
+          { "value": 60, "id": "l3", "children": [] },
+          { "value": 80, "id": "r3", "children": [] }
+        ]
+      }
+    ]
+  },
+  "config": {
+    "nodeRadius": 28,
+    "showValues": true
+  },
+  "steps": [
+    { "action": "highlight", "target": "root", "duration": 400, "description": "BST 根节点: 50" },
+    { "action": "traverse", "target": "l1", "duration": 300, "description": "左子树: 30 < 50" },
+    { "action": "traverse", "target": "l2", "duration": 300, "description": "继续左子树: 20 < 30" },
+    { "action": "highlight", "target": "l2", "duration": 300, "description": "找到最小值: 20" },
+    { "action": "unhighlight", "target": ["l1", "l2"], "duration": 100 },
+    { "action": "traverse", "target": "r2", "duration": 300, "description": "右子树: 40 > 30" },
+    { "action": "highlight", "target": "r2", "duration": 300, "description": "叶子节点: 40" },
+    { "action": "unhighlight", "target": "r2", "duration": 100 },
+    { "action": "traverse", "target": "r1", "duration": 300, "description": "右子树: 70 > 50" },
+    { "action": "traverse", "target": "l3", "duration": 300, "description": "左子树: 60 < 70" },
+    { "action": "highlight", "target": "l3", "duration": 300, "description": "叶子节点: 60" },
+    { "action": "unhighlight", "target": "l3", "duration": 100 },
+    { "action": "traverse", "target": "r3", "duration": 300, "description": "右子树: 80 > 70" },
+    { "action": "highlight", "target": "r3", "duration": 300, "description": "找到最大值: 80" },
+    { "action": "complete", "target": ["root", "l1", "l2", "r2", "r1", "l3", "r3"], "duration": 500, "description": "中序遍历: 20, 30, 40, 50, 60, 70, 80" }
+  ],
+  "metadata": {
+    "title": "BST Traversal Demo",
+    "algorithm": "bst",
+    "description": "二叉搜索树中序遍历演示",
+    "complexity": {
+      "time": "O(n)",
+      "space": "O(h)"
+    }
+  }
+}
